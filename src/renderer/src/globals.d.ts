@@ -17,6 +17,11 @@ import type {
   AiSettings,
   AiModelInfo,
   Subscription,
+  LabelCount,
+  TimeSeriesPoint,
+  SenderStat,
+  ThreatSummary,
+  SentimentCount,
   IpcResult
 } from '../../shared/types'
 
@@ -69,6 +74,13 @@ declare global {
       invoke(channel: 'ai:mute-subscription', subscriptionId: string): Promise<IpcResult>
       invoke(channel: 'ai:unmute-subscription', subscriptionId: string): Promise<IpcResult>
       invoke(channel: 'ai:unsubscribe', subscriptionId: string): Promise<IpcResult>
+
+      // AI - Analytics
+      invoke(channel: 'ai:analytics-classification', accountId?: string, days?: number): Promise<LabelCount[]>
+      invoke(channel: 'ai:analytics-volume', accountId?: string, granularity?: 'day' | 'week' | 'month', range?: number): Promise<TimeSeriesPoint[]>
+      invoke(channel: 'ai:analytics-senders', limit: number): Promise<SenderStat[]>
+      invoke(channel: 'ai:analytics-threats', days: number): Promise<ThreatSummary>
+      invoke(channel: 'ai:analytics-sentiment', accountId?: string): Promise<SentimentCount[]>
 
       // AI - Settings
       invoke(channel: 'ai:get-settings'): Promise<AiSettings>

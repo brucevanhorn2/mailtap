@@ -3,6 +3,7 @@ import { aiModelManager } from '../services/AiModelManager'
 import { subscriptionService } from '../services/SubscriptionService'
 import { classificationService } from '../services/ClassificationService'
 import { aiPipelineService } from '../services/AiPipelineService'
+import { aiAnalyticsService } from '../services/AiAnalyticsService'
 import { settingsService } from '../services/SettingsService'
 import type { IpcResult, AiSettings } from '@shared/types'
 import { logger } from '../utils/logger'
@@ -125,6 +126,73 @@ export function registerAiIpc(): void {
         success: false,
         error: String(err)
       } as IpcResult
+    }
+  })
+
+  // ─── Analytics ──────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'ai:analytics-classification',
+    async (_event, accountId?: string, days?: number) => {
+      try {
+        return aiAnalyticsService.getClassificationBreakdown(accountId, days)
+      } catch (err) {
+        logger.error('Error getting classification analytics:', err)
+        return []
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'ai:analytics-volume',
+    async (
+      _event,
+      accountId?: string,
+      granularity?: 'day' | 'week' | 'month',
+      range?: number
+    ) => {
+      try {
+        return aiAnalyticsService.getVolumeTimeSeries(
+          accountId,
+          granularity ?? 'day',
+          range ?? 30
+        )
+      } catch (err) {
+        logger.error('Error getting volume analytics:', err)
+        return []
+      }
+    }
+  )
+
+  ipcMain.handle('ai:analytics-senders', async (_event, limit: number) => {
+    try {
+      return aiAnalyticsService.getTopSenders(limit)
+    } catch (err) {
+      logger.error('Error getting top senders:', err)
+      return []
+    }
+  })
+
+  ipcMain.handle('ai:analytics-threats', async (_event, days: number) => {
+    try {
+      return aiAnalyticsService.getThreatSummary(days)
+    } catch (err) {
+      logger.error('Error getting threat summary:', err)
+      return {
+        totalThreats: 0,
+        highRisk: 0,
+        mediumRisk: 0,
+        details: []
+      }
+    }
+  })
+
+  ipcMain.handle('ai:analytics-sentiment', async (_event, accountId?: string) => {
+    try {
+      return aiAnalyticsService.getSentimentBreakdown(accountId)
+    } catch (err) {
+      logger.error('Error getting sentiment analytics:', err)
+      return []
     }
   })
 

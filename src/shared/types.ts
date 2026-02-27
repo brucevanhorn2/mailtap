@@ -244,6 +244,47 @@ export interface Subscription {
   isMuted: boolean
 }
 
+// ─── AI Analytics ────────────────────────────────────────────────────────────
+
+export interface LabelCount {
+  label: string
+  count: number
+  percentage: number
+}
+
+export interface TimeSeriesPoint {
+  date: string
+  count: number
+  label?: string
+}
+
+export interface SenderStat {
+  email: string
+  name: string
+  count: number
+  avgSpamScore: number
+}
+
+export interface ThreatMessage {
+  id: string
+  subject: string
+  fromEmail: string
+  threatScore: number
+}
+
+export interface ThreatSummary {
+  totalThreats: number
+  highRisk: number
+  mediumRisk: number
+  details: ThreatMessage[]
+}
+
+export interface SentimentCount {
+  sentiment: string
+  count: number
+  percentage: number
+}
+
 // ─── IPC generic ─────────────────────────────────────────────────────────────
 
 export interface IpcResult<T = void> {
