@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3'
 import type { Database as DB } from 'better-sqlite3'
+import * as sqliteVec from 'sqlite-vec'
 import { getDbPath } from '../utils/paths'
 import { logger } from '../utils/logger'
 
@@ -96,6 +97,14 @@ class StorageService {
     logger.info('Opening SQLite database at', dbPath)
 
     this._db = new Database(dbPath)
+
+    // Load sqlite-vec extension for vector search
+    try {
+      sqliteVec.load(this._db)
+      logger.info('sqlite-vec extension loaded')
+    } catch (err) {
+      logger.warn('Failed to load sqlite-vec extension:', err)
+    }
 
     // Enable WAL mode for better concurrent read performance
     this._db.pragma('journal_mode = WAL')
@@ -210,6 +219,11 @@ class StorageService {
         downloaded_at INTEGER,
         local_path  TEXT,
         model_type  TEXT NOT NULL
+      );
+
+      CREATE VIRTUAL TABLE IF NOT EXISTS message_embeddings USING vec0(
+        message_id TEXT PRIMARY KEY,
+        embedding float[384]
       );
     `)
   }

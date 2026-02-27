@@ -4,6 +4,7 @@ import { subscriptionService } from '../services/SubscriptionService'
 import { classificationService } from '../services/ClassificationService'
 import { aiPipelineService } from '../services/AiPipelineService'
 import { aiAnalyticsService } from '../services/AiAnalyticsService'
+import { embeddingService } from '../services/EmbeddingService'
 import { settingsService } from '../services/SettingsService'
 import type { IpcResult, AiSettings } from '@shared/types'
 import { logger } from '../utils/logger'
@@ -126,6 +127,39 @@ export function registerAiIpc(): void {
         success: false,
         error: String(err)
       } as IpcResult
+    }
+  })
+
+  // ─── Embeddings & Search ────────────────────────────────────────────────
+
+  ipcMain.handle('ai:embed-message', async (_event, messageId: string) => {
+    try {
+      await embeddingService.embedMessage(messageId)
+      return { success: true } as IpcResult
+    } catch (err) {
+      logger.error(`Error embedding message ${messageId}:`, err)
+      return {
+        success: false,
+        error: String(err)
+      } as IpcResult
+    }
+  })
+
+  ipcMain.handle('ai:search-similar', async (_event, query: string, limit: number = 20) => {
+    try {
+      return await embeddingService.searchSimilar(query, limit)
+    } catch (err) {
+      logger.error('Error searching similar:', err)
+      return []
+    }
+  })
+
+  ipcMain.handle('ai:hybrid-search', async (_event, query: string, limit: number = 20) => {
+    try {
+      return await embeddingService.hybridSearch(query, limit)
+    } catch (err) {
+      logger.error('Error performing hybrid search:', err)
+      return []
     }
   })
 

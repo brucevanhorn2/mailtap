@@ -1,9 +1,5 @@
 import { parentPort } from 'worker_threads'
 
-// Note: In Phase 4, this is a stub that returns mock data.
-// In a real implementation, this would load Transformers.js and the BGE-small model.
-// For now, we'll return a 384-dimensional vector with mock data.
-
 interface WorkerRequest {
   requestId: string
   method: string
@@ -16,6 +12,45 @@ interface WorkerResponse {
   error?: string
 }
 
+// Lazy-load Transformers.js to avoid loading it if not needed
+let embedding: any = null
+
+async function loadEmbedder() {
+  if (embedding) return
+
+  try {
+    const { pipeline } = await import('@huggingface/transformers')
+    embedding = await pipeline('feature-extraction', 'Xenova/bge-small-en-v1.5')
+    console.log('[embedder-worker] BGE-small model loaded')
+  } catch (err) {
+    console.error('[embedder-worker] Failed to load model:', err)
+    throw err
+  }
+}
+
+async function embedText(text: string): Promise<ArrayBuffer> {
+  if (!embedding) {
+    await loadEmbedder()
+  }
+
+  try {
+    // Generate embedding for the text
+    const result = await embedding(text, {
+      pooling: 'mean',
+      normalize: true
+    })
+
+    // result is a Tensor, convert to Float32Array
+    const data = new Float32Array(await result.data())
+
+    // Return as ArrayBuffer for transfer
+    return data.buffer
+  } catch (err) {
+    console.error('[embedder-worker] Embedding error:', err)
+    throw err
+  }
+}
+
 if (parentPort) {
   parentPort.on('message', async (request: WorkerRequest) => {
     try {
@@ -25,24 +60,8 @@ if (parentPort) {
 
       switch (method) {
         case 'embed': {
-          const [_text] = args as [string]
-          // Mock implementation: return a 384-dimensional vector with random values
-          const embedding = new Float32Array(384)
-          for (let i = 0; i < 384; i++) {
-            embedding[i] = Math.random() - 0.5
-          }
-          // Normalize
-          let norm = 0
-          for (let i = 0; i < 384; i++) {
-            norm += embedding[i] * embedding[i]
-          }
-          norm = Math.sqrt(norm)
-          for (let i = 0; i < 384; i++) {
-            embedding[i] = embedding[i] / norm
-          }
-
-          // Convert to ArrayBuffer for transfer
-          result = embedding.buffer
+          const [text] = args as [string]
+          result = await embedText(text)
           break
         }
 
@@ -55,6 +74,7 @@ if (parentPort) {
         result
       }
 
+      // Transfer ArrayBuffer if present
       parentPort!.postMessage(response, result instanceof ArrayBuffer ? [result] : [])
     } catch (err) {
       const response: WorkerResponse = {

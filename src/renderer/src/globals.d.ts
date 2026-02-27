@@ -75,6 +75,15 @@ declare global {
       invoke(channel: 'ai:unmute-subscription', subscriptionId: string): Promise<IpcResult>
       invoke(channel: 'ai:unsubscribe', subscriptionId: string): Promise<IpcResult>
 
+      // AI - Classification
+      invoke(channel: 'ai:classify-message', messageId: string): Promise<IpcResult>
+      invoke(channel: 'ai:classify-batch'): Promise<IpcResult>
+
+      // AI - Embeddings & Search
+      invoke(channel: 'ai:embed-message', messageId: string): Promise<IpcResult>
+      invoke(channel: 'ai:search-similar', query: string, limit?: number): Promise<Array<{ messageId: string; similarity: number }>>
+      invoke(channel: 'ai:hybrid-search', query: string, limit?: number): Promise<SearchResult[]>
+
       // AI - Analytics
       invoke(channel: 'ai:analytics-classification', accountId?: string, days?: number): Promise<LabelCount[]>
       invoke(channel: 'ai:analytics-volume', accountId?: string, granularity?: 'day' | 'week' | 'month', range?: number): Promise<TimeSeriesPoint[]>
