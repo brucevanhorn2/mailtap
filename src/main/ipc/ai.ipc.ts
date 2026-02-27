@@ -1,6 +1,8 @@
 import { ipcMain } from 'electron'
 import { aiModelManager } from '../services/AiModelManager'
 import { subscriptionService } from '../services/SubscriptionService'
+import { classificationService } from '../services/ClassificationService'
+import { aiPipelineService } from '../services/AiPipelineService'
 import { settingsService } from '../services/SettingsService'
 import type { IpcResult, AiSettings } from '@shared/types'
 import { logger } from '../utils/logger'
@@ -97,6 +99,35 @@ export function registerAiIpc(): void {
     }
   })
 
+  // ─── Classification ─────────────────────────────────────────────────────
+
+  ipcMain.handle('ai:classify-message', async (_event, messageId: string) => {
+    try {
+      const labels = settingsService.load().ai?.customLabels || []
+      await classificationService.classifyMessage(messageId, labels)
+      return { success: true } as IpcResult
+    } catch (err) {
+      logger.error(`Error classifying message ${messageId}:`, err)
+      return {
+        success: false,
+        error: String(err)
+      } as IpcResult
+    }
+  })
+
+  ipcMain.handle('ai:classify-batch', async () => {
+    try {
+      await aiPipelineService.processQueue()
+      return { success: true } as IpcResult
+    } catch (err) {
+      logger.error('Error processing classification batch:', err)
+      return {
+        success: false,
+        error: String(err)
+      } as IpcResult
+    }
+  })
+
   // ─── Settings ───────────────────────────────────────────────────────────────
 
   ipcMain.handle('ai:get-settings', async () => {
@@ -131,6 +162,13 @@ export function registerAiIpc(): void {
       aiSettings.enabled = enabled
       settings.ai = aiSettings
       settingsService.save(settings)
+
+      // Start/stop the pipeline based on enabled state
+      if (enabled) {
+        aiPipelineService.enable()
+      } else {
+        aiPipelineService.disable()
+      }
 
       return { success: true } as IpcResult
     } catch (err) {
