@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { Modal, Progress } from 'antd'
 import { useUiStore } from '../../store/uiStore'
 import { useSearchStore } from '../../store/searchStore'
 import { AccountSidebar } from './AccountSidebar'
@@ -72,6 +73,12 @@ export function AppLayout() {
     useUiStore()
   const { openSearch } = useSearchStore()
 
+  const [rebuildVisible, setRebuildVisible] = useState(false)
+  const [rebuildCurrent, setRebuildCurrent] = useState(0)
+  const [rebuildTotal, setRebuildTotal] = useState(0)
+  const [rebuildDone, setRebuildDone] = useState(false)
+  const rebuildProgressUnsubRef = useRef<(() => void) | null>(null)
+
   useEffect(() => {
     const unsubToggleSidebar = window.mailtap.on('menu:toggle-sidebar' as string, () => {
       toggleSidebar()
@@ -89,13 +96,44 @@ export function AppLayout() {
       openSearch()
     })
 
+    const unsubRebuild = window.mailtap.on('menu:rebuild-index' as string, () => {
+      setRebuildCurrent(0)
+      setRebuildTotal(0)
+      setRebuildDone(false)
+      setRebuildVisible(true)
+
+      const unsubProgress = window.mailtap.on('rebuild:progress', ({ current, total }) => {
+        setRebuildCurrent(current)
+        setRebuildTotal(total)
+      })
+      rebuildProgressUnsubRef.current = unsubProgress
+
+      window.mailtap.invoke('rebuild:trigger').then(() => {
+        setRebuildDone(true)
+        if (rebuildProgressUnsubRef.current) {
+          rebuildProgressUnsubRef.current()
+          rebuildProgressUnsubRef.current = null
+        }
+      })
+    })
+
     return () => {
       unsubToggleSidebar()
       unsubAddAccount()
       unsubSyncAll()
       unsubSearch()
+      unsubRebuild()
     }
   }, [toggleSidebar, openSearch])
+
+  const rebuildPercent =
+    rebuildTotal > 0 ? Math.round((rebuildCurrent / rebuildTotal) * 100) : (rebuildDone ? 100 : 0)
+
+  const handleRebuildClose = () => {
+    if (rebuildDone) {
+      setRebuildVisible(false)
+    }
+  }
 
   return (
     <div
@@ -126,6 +164,32 @@ export function AppLayout() {
       </div>
 
       <SearchBar />
+
+      <Modal
+        title="Rebuilding Search Index"
+        open={rebuildVisible}
+        footer={rebuildDone ? undefined : null}
+        closable={rebuildDone}
+        maskClosable={false}
+        onOk={handleRebuildClose}
+        onCancel={handleRebuildClose}
+        okText="Close"
+      >
+        <div style={{ padding: '8px 0' }}>
+          <Progress
+            percent={rebuildPercent}
+            status={rebuildDone ? 'success' : 'active'}
+            strokeColor="#4f9eff"
+          />
+          <div style={{ marginTop: 8, color: '#999', fontSize: 13 }}>
+            {rebuildDone
+              ? `Done — ${rebuildTotal} message${rebuildTotal !== 1 ? 's' : ''} indexed.`
+              : rebuildTotal > 0
+                ? `Processing ${rebuildCurrent} / ${rebuildTotal}…`
+                : 'Scanning mail files…'}
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

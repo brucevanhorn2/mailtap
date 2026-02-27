@@ -53,6 +53,9 @@ declare global {
       invoke(channel: 'settings:load'): Promise<AppSettings>
       invoke(channel: 'settings:save', settings: AppSettings): Promise<void>
 
+      // Rebuild
+      invoke(channel: 'rebuild:trigger'): Promise<void>
+
       // Generic invoke fallback
       invoke(channel: string, ...args: unknown[]): Promise<unknown>
 
@@ -61,6 +64,7 @@ declare global {
       on(channel: 'sync:complete', callback: (accountId: string) => void): () => void
       on(channel: 'sync:error', callback: (event: import('../../shared/types').SyncErrorEvent) => void): () => void
       on(channel: 'mail:new-messages', callback: (event: import('../../shared/types').NewMessagesEvent) => void): () => void
+      on(channel: 'rebuild:progress', callback: (event: { current: number; total: number }) => void): () => void
       on(channel: string, callback: (...args: unknown[]) => void): () => void
     }
   }

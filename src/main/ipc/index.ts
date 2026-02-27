@@ -4,6 +4,7 @@ import { registerSyncIpc } from './sync.ipc'
 import { registerMailIpc } from './mail.ipc'
 import { registerSearchIpc } from './search.ipc'
 import { registerMailboxIpc } from './mailbox.ipc'
+import { registerRebuildIpc } from './rebuild.ipc'
 
 export function registerAllIpc(): void {
   registerSettingsIpc()
@@ -12,4 +13,5 @@ export function registerAllIpc(): void {
   registerMailIpc()
   registerSearchIpc()
   registerMailboxIpc()
+  registerRebuildIpc()
 }
