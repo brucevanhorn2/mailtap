@@ -123,7 +123,16 @@ export interface MailListResult {
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 export interface SearchQuery {
-  text: string
+  text?: string           // free-text across all indexed columns
+  subject?: string        // subject line only
+  body?: string           // body text only
+  from?: string           // sender name or email
+  to?: string             // recipient name or email
+  before?: number         // Unix timestamp (ms) — messages sent before this
+  after?: number          // Unix timestamp (ms) — messages sent after this
+  hasAttachment?: boolean
+  isUnread?: boolean
+  isStarred?: boolean
   accountId?: string
   limit: number
   offset: number
@@ -132,6 +141,25 @@ export interface SearchQuery {
 export interface SearchResult {
   message: Message
   snippet: string
+}
+
+export interface SearchResultPage {
+  results: SearchResult[]
+  total: number
+}
+
+export type SuggestField = 'from' | 'to' | 'subject' | 'tag' | 'is' | 'has' | 'date'
+
+export interface SuggestRequest {
+  field: SuggestField
+  prefix: string
+  limit?: number
+}
+
+export interface SuggestResult {
+  value: string
+  label: string
+  count?: number
 }
 
 // ─── Sync ─────────────────────────────────────────────────────────────────────

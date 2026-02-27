@@ -9,7 +9,9 @@ import type {
   MailListQuery,
   MailListResult,
   SearchQuery,
-  SearchResult,
+  SearchResultPage,
+  SuggestRequest,
+  SuggestResult,
   SyncStatus,
   AppSettings,
   IpcResult
@@ -44,8 +46,8 @@ declare global {
       invoke(channel: 'mailbox:unread-counts'): Promise<Record<string, number>>
 
       // Search
-      invoke(channel: 'search:query', query: SearchQuery): Promise<SearchResult[]>
-      invoke(channel: 'search:suggest', text: string): Promise<string[]>
+      invoke(channel: 'search:query', query: SearchQuery): Promise<SearchResultPage>
+      invoke(channel: 'search:suggest', req: SuggestRequest): Promise<SuggestResult[]>
 
       // Settings
       invoke(channel: 'settings:load'): Promise<AppSettings>
