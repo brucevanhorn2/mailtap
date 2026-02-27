@@ -206,6 +206,42 @@ export interface AppSettings {
   showExternalImages: boolean
   syncOnStartup: boolean
   enableLogging: boolean
+  ai?: AiSettings
+}
+
+// ─── AI ──────────────────────────────────────────────────────────────────────
+
+export interface AiSettings {
+  enabled: boolean
+  autoClassify: boolean
+  autoEmbed: boolean
+  spamThreshold: number
+  threatThreshold: number
+  customLabels: string[]
+  llmEnabled: boolean
+  llmModelId: string | null
+}
+
+export interface AiModelInfo {
+  id: string
+  displayName: string
+  tier: number
+  sizeBytes: number
+  modelType: string
+  isDownloaded: boolean
+  localPath: string | null
+}
+
+export interface Subscription {
+  id: string
+  fromEmail: string
+  fromName: string
+  listId: string | null
+  unsubscribeUrl: string | null
+  messageCount: number
+  firstSeenAt: number
+  lastSeenAt: number
+  isMuted: boolean
 }
 
 // ─── IPC generic ─────────────────────────────────────────────────────────────

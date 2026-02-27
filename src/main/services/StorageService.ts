@@ -3,7 +3,7 @@ import type { Database as DB } from 'better-sqlite3'
 import { getDbPath } from '../utils/paths'
 import { logger } from '../utils/logger'
 
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -137,6 +137,14 @@ class StorageService {
           )
           logger.info('Migration v1 applied')
         }
+        if (currentVersion < 2) {
+          this.applyMigrationV2()
+          db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(
+            2,
+            Date.now()
+          )
+          logger.info('Migration v2 applied')
+        }
       })
 
       migrate()
@@ -148,6 +156,62 @@ class StorageService {
   private applyMigrationV1(): void {
     const db = this._db!
     db.exec(SCHEMA_SQL)
+  }
+
+  private applyMigrationV2(): void {
+    const db = this._db!
+
+    // Add AI columns to messages table
+    db.exec(`
+      ALTER TABLE messages ADD COLUMN ai_labels TEXT NOT NULL DEFAULT '{}';
+      ALTER TABLE messages ADD COLUMN ai_spam_score REAL;
+      ALTER TABLE messages ADD COLUMN ai_threat_score REAL;
+      ALTER TABLE messages ADD COLUMN ai_sentiment TEXT;
+      ALTER TABLE messages ADD COLUMN ai_summary TEXT;
+      ALTER TABLE messages ADD COLUMN ai_classified_at INTEGER;
+      ALTER TABLE messages ADD COLUMN ai_embedded_at INTEGER;
+      ALTER TABLE messages ADD COLUMN is_newsletter INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE messages ADD COLUMN newsletter_unsubscribe_url TEXT;
+
+      CREATE INDEX IF NOT EXISTS idx_messages_ai_spam_score ON messages(ai_spam_score);
+      CREATE INDEX IF NOT EXISTS idx_messages_ai_threat_score ON messages(ai_threat_score);
+      CREATE INDEX IF NOT EXISTS idx_messages_is_newsletter ON messages(is_newsletter);
+      CREATE INDEX IF NOT EXISTS idx_messages_ai_classified_at ON messages(ai_classified_at);
+
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        id            TEXT PRIMARY KEY,
+        from_email    TEXT NOT NULL,
+        from_name     TEXT NOT NULL DEFAULT '',
+        list_id       TEXT,
+        unsubscribe_url TEXT,
+        unsubscribe_post TEXT,
+        message_count INTEGER NOT NULL DEFAULT 0,
+        first_seen_at INTEGER NOT NULL,
+        last_seen_at  INTEGER NOT NULL,
+        is_muted      INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(from_email, list_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS ai_queue (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_id  TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        task_type   TEXT NOT NULL,
+        priority    INTEGER NOT NULL DEFAULT 0,
+        created_at  INTEGER NOT NULL,
+        UNIQUE(message_id, task_type)
+      );
+      CREATE INDEX IF NOT EXISTS idx_ai_queue_priority ON ai_queue(priority DESC, created_at ASC);
+
+      CREATE TABLE IF NOT EXISTS ai_models (
+        id          TEXT PRIMARY KEY,
+        display_name TEXT NOT NULL,
+        tier        INTEGER NOT NULL,
+        size_bytes  INTEGER NOT NULL,
+        downloaded_at INTEGER,
+        local_path  TEXT,
+        model_type  TEXT NOT NULL
+      );
+    `)
   }
 
   close(): void {

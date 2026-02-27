@@ -14,6 +14,9 @@ import type {
   SuggestResult,
   SyncStatus,
   AppSettings,
+  AiSettings,
+  AiModelInfo,
+  Subscription,
   IpcResult
 } from '../../shared/types'
 
@@ -56,6 +59,22 @@ declare global {
       // Rebuild
       invoke(channel: 'rebuild:trigger'): Promise<void>
 
+      // AI - Model Management
+      invoke(channel: 'ai:list-models'): Promise<AiModelInfo[]>
+      invoke(channel: 'ai:download-model', modelId: string): Promise<IpcResult<{ modelPath: string }>>
+      invoke(channel: 'ai:delete-model', modelId: string): Promise<IpcResult>
+
+      // AI - Subscriptions
+      invoke(channel: 'ai:list-subscriptions'): Promise<Subscription[]>
+      invoke(channel: 'ai:mute-subscription', subscriptionId: string): Promise<IpcResult>
+      invoke(channel: 'ai:unmute-subscription', subscriptionId: string): Promise<IpcResult>
+      invoke(channel: 'ai:unsubscribe', subscriptionId: string): Promise<IpcResult>
+
+      // AI - Settings
+      invoke(channel: 'ai:get-settings'): Promise<AiSettings>
+      invoke(channel: 'ai:save-settings', settings: AiSettings): Promise<IpcResult>
+      invoke(channel: 'ai:enable', enabled: boolean): Promise<IpcResult>
+
       // Generic invoke fallback
       invoke(channel: string, ...args: unknown[]): Promise<unknown>
 
@@ -65,6 +84,7 @@ declare global {
       on(channel: 'sync:error', callback: (event: import('../../shared/types').SyncErrorEvent) => void): () => void
       on(channel: 'mail:new-messages', callback: (event: import('../../shared/types').NewMessagesEvent) => void): () => void
       on(channel: 'rebuild:progress', callback: (event: { current: number; total: number }) => void): () => void
+      on(channel: 'ai:model-download-progress', callback: (event: { modelId: string; percent: number }) => void): () => void
       on(channel: string, callback: (...args: unknown[]) => void): () => void
     }
   }
