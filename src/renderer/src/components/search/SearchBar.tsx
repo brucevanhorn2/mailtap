@@ -18,6 +18,7 @@ function Chip({ chip, onRemove }: { chip: FilterChip; onRemove: () => void }) {
   const labels: Record<string, string> = {
     from: 'from',
     to: 'to',
+    cc: 'cc',
     subject: 'subj',
     body: 'body',
     before: 'before',

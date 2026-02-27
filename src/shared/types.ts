@@ -128,11 +128,15 @@ export interface SearchQuery {
   body?: string           // body text only
   from?: string           // sender name or email
   to?: string             // recipient name or email
+  cc?: string             // CC recipient name or email
+  // bcc — deferred: BCC is stripped by SMTP on delivery; add when classification lands
   before?: number         // Unix timestamp (ms) — messages sent before this
   after?: number          // Unix timestamp (ms) — messages sent after this
   hasAttachment?: boolean
   isUnread?: boolean
   isStarred?: boolean
+  isCcMe?: boolean        // any of the user's account emails is in the CC field
+  isForwarded?: boolean   // subject begins with Fwd: or FW:
   accountId?: string
   limit: number
   offset: number
@@ -148,7 +152,7 @@ export interface SearchResultPage {
   total: number
 }
 
-export type SuggestField = 'from' | 'to' | 'subject' | 'tag' | 'is' | 'has' | 'date'
+export type SuggestField = 'from' | 'to' | 'cc' | 'subject' | 'tag' | 'is' | 'has' | 'date'
 
 export interface SuggestRequest {
   field: SuggestField

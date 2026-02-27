@@ -7,6 +7,7 @@ import type {
   Message
 } from '@shared/types'
 import { storageService } from './StorageService'
+import { accountService } from './AccountService'
 import { logger } from '../utils/logger'
 
 interface MessageRow {
@@ -122,6 +123,31 @@ class SearchService {
     }
     if (query.isStarred === true) {
       conditions.push('m.is_starred = 1')
+    }
+
+    // CC recipient (SQL LIKE on the stored JSON — FTS doesn't index cc_addresses)
+    if (query.cc?.trim()) {
+      conditions.push('m.cc_addresses LIKE ?')
+      sqlParams.push(`%${query.cc.trim()}%`)
+    }
+
+    // CC:me — any of the user's account emails appears in cc_addresses
+    if (query.isCcMe === true) {
+      try {
+        const accountEmails = accountService.listAccounts().map((a) => a.email).filter(Boolean)
+        if (accountEmails.length > 0) {
+          const ccMeConds = accountEmails.map(() => 'm.cc_addresses LIKE ?')
+          conditions.push(`(${ccMeConds.join(' OR ')})`)
+          for (const email of accountEmails) sqlParams.push(`%${email}%`)
+        }
+      } catch (err) {
+        logger.warn('SearchService: could not resolve account emails for isCcMe', err)
+      }
+    }
+
+    // Forwarded — subject starts with common forward prefixes (LIKE is case-insensitive for ASCII)
+    if (query.isForwarded === true) {
+      conditions.push("(m.subject LIKE 'Fwd:%' OR m.subject LIKE 'FW:%')")
     }
 
     // No filters at all → return empty
@@ -246,6 +272,33 @@ class SearchService {
           }))
         }
 
+        case 'cc': {
+          // cc_addresses is JSON: [{"name":"...","email":"..."},...]
+          const rows = this.db
+            .prepare(
+              `SELECT
+                 json_extract(j.value, '$.name') AS name,
+                 json_extract(j.value, '$.email') AS email,
+                 COUNT(*) AS cnt
+               FROM messages, json_each(messages.cc_addresses) AS j
+               WHERE messages.is_deleted = 0
+                 ${prefix ? "AND (json_extract(j.value, '$.name') LIKE ? OR json_extract(j.value, '$.email') LIKE ?)" : ''}
+               GROUP BY json_extract(j.value, '$.email')
+               ORDER BY cnt DESC
+               LIMIT ?`
+            )
+            .all(...(prefix ? [`%${prefix}%`, `%${prefix}%`] : []), limit) as {
+              name: string | null
+              email: string
+              cnt: number
+            }[]
+          return rows.map((r) => ({
+            value: r.email,
+            label: r.name ? `${r.name} <${r.email}>` : r.email,
+            count: r.cnt
+          }))
+        }
+
         case 'subject': {
           if (!prefix) return []
           const ftsQuery = buildFtsTokens('subject', prefix)
@@ -264,12 +317,13 @@ class SearchService {
           const allTags: SuggestResult[] = [
             { value: 'from:', label: 'from: — filter by sender' },
             { value: 'to:', label: 'to: — filter by recipient' },
+            { value: 'cc:', label: 'cc: — filter by CC recipient' },
             { value: 'subject:', label: 'subject: — filter by subject' },
             { value: 'body:', label: 'body: — search message body' },
             { value: 'before:', label: 'before: — sent before a date' },
             { value: 'after:', label: 'after: — sent after a date' },
-            { value: 'is:', label: 'is: — filter by status (unread, starred)' },
-            { value: 'has:', label: 'has: — filter by content (attachment)' }
+            { value: 'is:', label: 'is: — status filter (unread, starred, forwarded, ccme)' },
+            { value: 'has:', label: 'has: — content filter (attachment)' }
           ]
           if (!prefix) return allTags
           const lp = prefix.toLowerCase()
@@ -282,7 +336,9 @@ class SearchService {
           const opts: SuggestResult[] = [
             { value: 'unread', label: 'unread — show only unread messages' },
             { value: 'read', label: 'read — show only read messages' },
-            { value: 'starred', label: 'starred — show only starred messages' }
+            { value: 'starred', label: 'starred — show only starred messages' },
+            { value: 'ccme', label: 'ccme — you are in the CC field' },
+            { value: 'forwarded', label: 'forwarded — forwarded messages (Fwd: / FW:)' }
           ]
           if (!prefix) return opts
           return opts.filter((o) => o.value.startsWith(prefix.toLowerCase()))

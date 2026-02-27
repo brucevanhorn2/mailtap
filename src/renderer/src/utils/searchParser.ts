@@ -29,6 +29,8 @@ const TAG_CANONICAL: Record<string, string> = {
   from: 'from',
   sender: 'from',
   to: 'to',
+  cc: 'cc',
+  // bcc — deferred until classification feature (BCC stripped by SMTP on delivery)
   subject: 'subject',
   body: 'body',
   text: 'body',
@@ -82,7 +84,7 @@ function parseDate(value: string): number | undefined {
  * We use the `gi` flags and call `.exec()` in a loop.
  */
 const TAG_RE =
-  /(sent\s+(?:before|after)|from|sender|to|subject|body|text|before|after|since|is|has):(\"[^\"]*\"|\S+)/gi
+  /(sent\s+(?:before|after)|from|sender|to|cc|subject|body|text|before|after|since|is|has):(\"[^\"]*\"|\S+)/gi
 
 function applyChipToQuery(chip: FilterChip, q: Partial<SearchQuery>): void {
   switch (chip.tag) {
@@ -91,6 +93,14 @@ function applyChipToQuery(chip: FilterChip, q: Partial<SearchQuery>): void {
       break
     case 'to':
       q.to = chip.value
+      break
+    case 'cc':
+      // 'cc:me' is a special keyword meaning "I am in the CC field"
+      if (chip.value.toLowerCase() === 'me') {
+        q.isCcMe = true
+      } else {
+        q.cc = chip.value
+      }
       break
     case 'subject':
       q.subject = chip.value
@@ -112,6 +122,8 @@ function applyChipToQuery(chip: FilterChip, q: Partial<SearchQuery>): void {
       if (chip.value === 'unread') q.isUnread = true
       else if (chip.value === 'read') q.isUnread = false
       else if (chip.value === 'starred') q.isStarred = true
+      else if (chip.value === 'ccme' || chip.value === 'cc-me') q.isCcMe = true
+      else if (chip.value === 'forwarded') q.isForwarded = true
       break
     case 'has':
       if (chip.value === 'attachment' || chip.value === 'attachments') q.hasAttachment = true
@@ -259,6 +271,8 @@ export function tagToSuggestField(tag: string | null): SuggestField {
       return 'from'
     case 'to':
       return 'to'
+    case 'cc':
+      return 'cc'
     case 'subject':
       return 'subject'
     case 'before':
