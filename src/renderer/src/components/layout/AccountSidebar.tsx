@@ -163,17 +163,42 @@ export function AccountSidebar() {
 
               {isExpanded && mailboxes.length > 0 && (
                 <div>
-                  {mailboxes.map((mailbox) => (
-                    <FolderItem
-                      key={mailbox.id}
-                      mailbox={{
-                        ...mailbox,
-                        unreadCount: unreadCounts[mailbox.id] ?? mailbox.unreadCount
-                      }}
-                      isSelected={activeMailboxId === mailbox.id}
-                      onSelect={() => handleFolderSelect(account.id, mailbox.id)}
-                    />
-                  ))}
+                  {[...mailboxes]
+                    .sort((a, b) => {
+                      const isInbox = (m: Mailbox) =>
+                        m.path.toLowerCase() === 'inbox' ||
+                        m.attributes.some((x) => x.toLowerCase() === '\\inbox')
+                      if (isInbox(a) && !isInbox(b)) return -1
+                      if (!isInbox(a) && isInbox(b)) return 1
+                      return 0
+                    })
+                    .map((mailbox, idx, arr) => {
+                      const isInbox =
+                        mailbox.path.toLowerCase() === 'inbox' ||
+                        mailbox.attributes.some((x) => x.toLowerCase() === '\\inbox')
+                      const nextIsNotInbox = idx === 0 && isInbox && arr.length > 1
+                      return (
+                        <React.Fragment key={mailbox.id}>
+                          <FolderItem
+                            mailbox={{
+                              ...mailbox,
+                              unreadCount: unreadCounts[mailbox.id] ?? mailbox.unreadCount
+                            }}
+                            isSelected={activeMailboxId === mailbox.id}
+                            onSelect={() => handleFolderSelect(account.id, mailbox.id)}
+                          />
+                          {nextIsNotInbox && (
+                            <div
+                              style={{
+                                height: 1,
+                                backgroundColor: '#2a2a2e',
+                                margin: '4px 14px 4px 36px'
+                              }}
+                            />
+                          )}
+                        </React.Fragment>
+                      )
+                    })}
                 </div>
               )}
             </div>
