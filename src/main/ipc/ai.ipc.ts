@@ -5,6 +5,7 @@ import { classificationService } from '../services/ClassificationService'
 import { aiPipelineService } from '../services/AiPipelineService'
 import { aiAnalyticsService } from '../services/AiAnalyticsService'
 import { embeddingService } from '../services/EmbeddingService'
+import { ragService } from '../services/RagService'
 import { settingsService } from '../services/SettingsService'
 import type { IpcResult, AiSettings } from '@shared/types'
 import { logger } from '../utils/logger'
@@ -275,6 +276,60 @@ export function registerAiIpc(): void {
       return { success: true } as IpcResult
     } catch (err) {
       logger.error('Error enabling/disabling AI:', err)
+      return {
+        success: false,
+        error: String(err)
+      } as IpcResult
+    }
+  })
+
+  // ─── RAG ────────────────────────────────────────────────────────────────
+
+  ipcMain.handle('ai:init-llm', async (_event, modelPath: string) => {
+    try {
+      await ragService.initLlm(modelPath)
+      return { success: true } as IpcResult
+    } catch (err) {
+      logger.error('Error initializing LLM:', err)
+      return {
+        success: false,
+        error: String(err)
+      } as IpcResult
+    }
+  })
+
+  ipcMain.handle('ai:ask', async (_event, question: string, limit?: number) => {
+    try {
+      const result = await ragService.query(question, limit)
+      return { success: true, data: result } as unknown as IpcResult
+    } catch (err) {
+      logger.error('Error performing RAG query:', err)
+      return {
+        success: false,
+        error: String(err)
+      } as IpcResult
+    }
+  })
+
+  ipcMain.handle('ai:summarize-message', async (_event, messageId: string) => {
+    try {
+      const summary = await ragService.summarizeMessage(messageId)
+      return { success: true, data: { summary } } as unknown as IpcResult
+    } catch (err) {
+      logger.error(`Error summarizing message ${messageId}:`, err)
+      return {
+        success: false,
+        error: String(err)
+      } as IpcResult
+    }
+  })
+
+  ipcMain.handle('ai:summarize-thread', async (_event, messageId: string) => {
+    try {
+      const threadSummary = await ragService.summarizeThread(messageId)
+      return { success: true, data: threadSummary } as unknown as IpcResult
+    } catch (err) {
+      logger.error(`Error summarizing thread for ${messageId}:`, err)
       return {
         success: false,
         error: String(err)

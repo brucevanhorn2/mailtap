@@ -98,6 +98,38 @@ class AiWorkerPool {
     }
   }
 
+  async startLlm(): Promise<void> {
+    if (this.llmWorker) {
+      logger.info('LLM worker already started')
+      return
+    }
+
+    try {
+      const workerPath = path.join(__dirname, '../workers/llm.worker.js')
+      this.llmWorker = new Worker(workerPath)
+
+      this.llmWorker.on('message', (response: WorkerResponse) => {
+        this.handleWorkerResponse(response)
+      })
+
+      this.llmWorker.on('error', (err) => {
+        logger.error('LLM worker error:', err)
+        this.rejectAllRequests(err)
+        this.llmWorker = null
+      })
+
+      this.llmWorker.on('exit', (code) => {
+        logger.info(`LLM worker exited with code ${code}`)
+        this.llmWorker = null
+      })
+
+      logger.info('LLM worker started')
+    } catch (err) {
+      logger.error('Failed to start LLM worker:', err)
+      throw err
+    }
+  }
+
   async classify(
     text: string,
     labels: string[]
@@ -124,6 +156,29 @@ class AiWorkerPool {
       return new Float32Array(buffer)
     }
     throw new Error('Invalid embedding response')
+  }
+
+  async loadLlm(modelPath: string): Promise<void> {
+    if (!this.llmWorker) {
+      await this.startLlm()
+    }
+
+    await this.sendWorkerRequest(this.llmWorker!, 'load', [modelPath])
+  }
+
+  async generate(prompt: string, maxTokens: number = 512): Promise<string> {
+    if (!this.llmWorker) {
+      await this.startLlm()
+    }
+
+    const result = await this.sendWorkerRequest(this.llmWorker!, 'generate', [
+      prompt,
+      maxTokens
+    ])
+    if (typeof result === 'string') {
+      return result
+    }
+    throw new Error('Invalid LLM generation response')
   }
 
   async shutdown(): Promise<void> {

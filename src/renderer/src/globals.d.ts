@@ -96,6 +96,12 @@ declare global {
       invoke(channel: 'ai:save-settings', settings: AiSettings): Promise<IpcResult>
       invoke(channel: 'ai:enable', enabled: boolean): Promise<IpcResult>
 
+      // AI - RAG
+      invoke(channel: 'ai:init-llm', modelPath: string): Promise<IpcResult>
+      invoke(channel: 'ai:ask', question: string, limit?: number): Promise<IpcResult<{ answer: string; sources: import('../../shared/types').SearchResult[] }>>
+      invoke(channel: 'ai:summarize-message', messageId: string): Promise<IpcResult<{ summary: string }>>
+      invoke(channel: 'ai:summarize-thread', messageId: string): Promise<IpcResult<{ summary: string; participants: string[]; messageCount: number }>>
+
       // Generic invoke fallback
       invoke(channel: string, ...args: unknown[]): Promise<unknown>
 
