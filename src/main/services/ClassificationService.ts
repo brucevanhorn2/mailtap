@@ -84,26 +84,27 @@ class ClassificationService {
       // Phase 1: Newsletter detection (pure header heuristics, fast)
       onProgress?.({ current: 0, total: 0, phase: 'Detecting newsletters' })
 
+      // Respect batchSize; parse EML once per message via detectFromHeaders
       const newsletterMessages = db
         .prepare(
           `SELECT id FROM messages
           WHERE is_newsletter = 0 AND is_deleted = 0
           ORDER BY received_at DESC
-          LIMIT 1000`
+          LIMIT ?`
         )
-        .all() as any[]
+        .all(batchSize) as any[]
 
       let current = 0
       for (const row of newsletterMessages) {
         try {
-          const isNewsletter = await subscriptionService.isNewsletter(row.id)
-          if (isNewsletter) {
-            const info = await subscriptionService.detectFromHeaders(row.id)
+          // detectFromHeaders parses EML once and returns null for non-newsletters
+          const info = await subscriptionService.detectFromHeaders(row.id)
+          if (info !== null) {
             db.prepare(
               `UPDATE messages SET is_newsletter = 1,
                newsletter_unsubscribe_url = ?
                WHERE id = ?`
-            ).run(info?.unsubscribeUrl ?? null, row.id)
+            ).run(info.unsubscribeUrl ?? null, row.id)
           }
         } catch (err) {
           logger.error(`Error detecting newsletter for ${row.id}:`, err)

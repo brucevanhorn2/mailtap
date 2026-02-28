@@ -356,15 +356,17 @@ class MailRepository {
     } else {
       // Fallback: group by similar subject (simple heuristic)
       const normalizedSubject = subject.replace(/^(re:|fwd:)\s*/i, '').trim()
+      // Escape LIKE wildcards in subject to avoid unintended matches (e.g. "50% off")
+      const escapedSubject = normalizedSubject.replace(/[%_\\]/g, '\\$&')
       rows = this.db
         .prepare<[string, string]>(
           `SELECT * FROM messages
            WHERE account_id = ?
            AND is_deleted = 0
-           AND REPLACE(REPLACE(LOWER(subject), 're: ', ''), 'fwd: ', '') LIKE ?
+           AND REPLACE(REPLACE(LOWER(subject), 're: ', ''), 'fwd: ', '') LIKE ? ESCAPE '\\'
            ORDER BY date ASC`
         )
-        .all(message.accountId, `%${normalizedSubject}%`) as MessageRow[]
+        .all(message.accountId, `%${escapedSubject}%`) as MessageRow[]
     }
 
     return rows.map(rowToMessage)

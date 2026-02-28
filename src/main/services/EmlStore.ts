@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs'
-import { join } from 'path'
+import { join, resolve, sep } from 'path'
 import { getMailRoot } from '../utils/paths'
 import { logger } from '../utils/logger'
 
@@ -51,9 +51,14 @@ class EmlStore {
 
   /**
    * Read an EML file and return its contents as a Buffer.
+   * Rejects paths that escape the mail root to prevent path traversal.
    */
   async read(emlPath: string): Promise<Buffer> {
-    return fs.readFile(emlPath)
+    const resolved = resolve(emlPath)
+    if (!resolved.startsWith(this.mailRoot + sep) && resolved !== this.mailRoot) {
+      throw new Error(`Path traversal rejected: ${emlPath}`)
+    }
+    return fs.readFile(resolved)
   }
 
   /**

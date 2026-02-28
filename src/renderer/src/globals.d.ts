@@ -10,6 +10,7 @@ import type {
   MailListResult,
   SearchQuery,
   SearchResultPage,
+  SearchResult,
   SuggestRequest,
   SuggestResult,
   SyncStatus,

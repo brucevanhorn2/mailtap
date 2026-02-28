@@ -49,18 +49,25 @@ class AiAnalyticsService {
       const db = storageService.db
 
       // Get all unique labels and their counts
-      const query = `
+      const params: (string | number)[] = []
+      let query = `
         SELECT
           json_extract(ai_labels, '$') as labels_json,
           COUNT(*) as count
         FROM messages
         WHERE ai_labels != '{}' AND is_deleted = 0
-          ${accountId ? 'AND account_id = ?' : ''}
-          ${days ? `AND received_at > ${Date.now() - days * 24 * 60 * 60 * 1000}` : ''}
-        GROUP BY labels_json
       `
+      if (accountId) {
+        query += ' AND account_id = ?'
+        params.push(accountId)
+      }
+      if (days) {
+        query += ' AND received_at > ?'
+        params.push(Date.now() - days * 24 * 60 * 60 * 1000)
+      }
+      query += ' GROUP BY labels_json'
 
-      const rows = db.prepare(query).all(...(accountId ? [accountId] : [])) as any[]
+      const rows = db.prepare(query).all(...params) as any[]
 
       // Flatten label counts from JSON
       const labelCounts = new Map<string, number>()
@@ -105,28 +112,33 @@ class AiAnalyticsService {
     try {
       const db = storageService.db
 
-      const msPerGranule =
-        granularity === 'day'
-          ? 24 * 60 * 60 * 1000
-          : granularity === 'week'
-            ? 7 * 24 * 60 * 60 * 1000
-            : 30 * 24 * 60 * 60 * 1000
+      const validGranules: Record<string, number> = {
+        day: 24 * 60 * 60 * 1000,
+        week: 7 * 24 * 60 * 60 * 1000,
+        month: 30 * 24 * 60 * 60 * 1000
+      }
+      const msPerGranule = validGranules[granularity] ?? validGranules.day
 
       const cutoffTime = Date.now() - range * msPerGranule
 
-      const query = `
+      // Use bound parameters throughout — msPerGranule is a safe allowlisted integer
+      // but we still bind it to avoid any interpolation risk
+      const queryParams: (string | number)[] = [msPerGranule, msPerGranule, cutoffTime]
+      let query = `
         SELECT
-          CAST((received_at / ${msPerGranule}) * ${msPerGranule} as INTEGER) as timestamp,
+          CAST((received_at / ?) * ? as INTEGER) as timestamp,
           COUNT(*) as count
         FROM messages
         WHERE is_deleted = 0
-          AND received_at > ${cutoffTime}
-          ${accountId ? 'AND account_id = ?' : ''}
-        GROUP BY timestamp
-        ORDER BY timestamp ASC
+          AND received_at > ?
       `
+      if (accountId) {
+        query += ' AND account_id = ?'
+        queryParams.push(accountId)
+      }
+      query += ' GROUP BY timestamp ORDER BY timestamp ASC'
 
-      const rows = db.prepare(query).all(...(accountId ? [accountId] : [])) as any[]
+      const rows = db.prepare(query).all(...queryParams) as any[]
 
       const result: TimeSeriesPoint[] = rows.map((row) => {
         const date = new Date(row.timestamp).toLocaleDateString()

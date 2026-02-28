@@ -42,6 +42,7 @@ const MODELS: Record<string, AiModelInfo> = {
 
 class AiModelManager {
   private modelsDir: string
+  private inFlight = new Set<string>()
 
   constructor() {
     this.modelsDir = path.join(app.getPath('userData'), 'ai-models')
@@ -103,19 +104,28 @@ class AiModelManager {
       return model.localPath
     }
 
-    // For now, we'll return a placeholder. In a real implementation,
-    // models would be downloaded from HuggingFace or similar.
-    // This is a stub that allows the infrastructure to work.
-    const modelPath = path.join(this.modelsDir, modelId)
-    fs.mkdirSync(modelPath, { recursive: true })
+    if (this.inFlight.has(modelId)) {
+      throw new Error(`Download already in progress for: ${modelId}`)
+    }
 
-    logger.info(`Model placeholder created for: ${modelId}`)
+    this.inFlight.add(modelId)
+    try {
+      // For now, we'll return a placeholder. In a real implementation,
+      // models would be downloaded from HuggingFace or similar.
+      // This is a stub that allows the infrastructure to work.
+      const modelPath = path.join(this.modelsDir, modelId)
+      fs.mkdirSync(modelPath, { recursive: true })
 
-    // Update model status
-    model.isDownloaded = true
-    model.localPath = modelPath
+      logger.info(`Model placeholder created for: ${modelId}`)
 
-    return modelPath
+      // Update model status
+      model.isDownloaded = true
+      model.localPath = modelPath
+
+      return modelPath
+    } finally {
+      this.inFlight.delete(modelId)
+    }
   }
 
   async deleteModel(modelId: string): Promise<void> {
@@ -124,13 +134,22 @@ class AiModelManager {
       throw new Error(`Model not found: ${modelId}`)
     }
 
-    if (model.localPath && fs.existsSync(model.localPath)) {
-      fs.rmSync(model.localPath, { recursive: true, force: true })
-      logger.info(`Deleted model: ${modelId}`)
+    if (this.inFlight.has(modelId)) {
+      throw new Error(`Operation already in progress for: ${modelId}`)
     }
 
-    model.isDownloaded = false
-    model.localPath = null
+    this.inFlight.add(modelId)
+    try {
+      if (model.localPath && fs.existsSync(model.localPath)) {
+        fs.rmSync(model.localPath, { recursive: true, force: true })
+        logger.info(`Deleted model: ${modelId}`)
+      }
+
+      model.isDownloaded = false
+      model.localPath = null
+    } finally {
+      this.inFlight.delete(modelId)
+    }
   }
 }
 

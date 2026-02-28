@@ -170,18 +170,31 @@ class StorageService {
   private applyMigrationV2(): void {
     const db = this._db!
 
-    // Add AI columns to messages table
-    db.exec(`
-      ALTER TABLE messages ADD COLUMN ai_labels TEXT NOT NULL DEFAULT '{}';
-      ALTER TABLE messages ADD COLUMN ai_spam_score REAL;
-      ALTER TABLE messages ADD COLUMN ai_threat_score REAL;
-      ALTER TABLE messages ADD COLUMN ai_sentiment TEXT;
-      ALTER TABLE messages ADD COLUMN ai_summary TEXT;
-      ALTER TABLE messages ADD COLUMN ai_classified_at INTEGER;
-      ALTER TABLE messages ADD COLUMN ai_embedded_at INTEGER;
-      ALTER TABLE messages ADD COLUMN is_newsletter INTEGER NOT NULL DEFAULT 0;
-      ALTER TABLE messages ADD COLUMN newsletter_unsubscribe_url TEXT;
+    // Check which AI columns already exist (guards against crash-partial migration)
+    const existingCols = new Set(
+      (db.prepare("PRAGMA table_info(messages)").all() as { name: string }[]).map(r => r.name)
+    )
 
+    const aiColumns: [string, string][] = [
+      ['ai_labels', "TEXT NOT NULL DEFAULT '{}'"],
+      ['ai_spam_score', 'REAL'],
+      ['ai_threat_score', 'REAL'],
+      ['ai_sentiment', 'TEXT'],
+      ['ai_summary', 'TEXT'],
+      ['ai_classified_at', 'INTEGER'],
+      ['ai_embedded_at', 'INTEGER'],
+      ['is_newsletter', 'INTEGER NOT NULL DEFAULT 0'],
+      ['newsletter_unsubscribe_url', 'TEXT']
+    ]
+
+    for (const [col, def] of aiColumns) {
+      if (!existingCols.has(col)) {
+        db.exec(`ALTER TABLE messages ADD COLUMN ${col} ${def}`)
+      }
+    }
+
+    // Indexes and tables use IF NOT EXISTS so they are always safe to re-run
+    db.exec(`
       CREATE INDEX IF NOT EXISTS idx_messages_ai_spam_score ON messages(ai_spam_score);
       CREATE INDEX IF NOT EXISTS idx_messages_ai_threat_score ON messages(ai_threat_score);
       CREATE INDEX IF NOT EXISTS idx_messages_is_newsletter ON messages(is_newsletter);

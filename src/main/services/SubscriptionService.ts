@@ -1,3 +1,5 @@
+import * as https from 'https'
+import * as http from 'http'
 import { simpleParser } from 'mailparser'
 import { mailRepository } from './MailRepository'
 import { emlStore } from './EmlStore'
@@ -13,7 +15,9 @@ interface NewsletterInfo {
 
 class SubscriptionService {
   /**
-   * Detect newsletter info from message headers
+   * Detect newsletter info from message headers.
+   * Returns null if the message does not look like a newsletter.
+   * Parses the EML exactly once — callers should NOT also call isNewsletter().
    */
   async detectFromHeaders(messageId: string): Promise<NewsletterInfo | null> {
     try {
@@ -23,65 +27,37 @@ class SubscriptionService {
       const emlBuffer = await emlStore.read(message.emlPath)
       const parsed = await simpleParser(emlBuffer)
 
-      // Extract headers
-      const listId = parsed.headers?.get('list-id') as string | undefined
-      const listUnsubscribe = parsed.headers?.get('list-unsubscribe') as string | undefined
-      const listUnsubscribePost = parsed.headers?.get('list-unsubscribe-post') as
-        | string
-        | undefined
-
-      let unsubscribeUrl: string | null = null
-
-      // Parse List-Unsubscribe header for HTTP URL
-      if (listUnsubscribe) {
-        const match = listUnsubscribe.match(/<(https?:\/\/[^>]+)>/)
-        if (match) {
-          unsubscribeUrl = match[1]
-        }
-      }
-
-      return {
-        listId: listId ?? null,
-        unsubscribeUrl,
-        unsubscribePost: listUnsubscribePost ?? null
-      }
-    } catch (err) {
-      logger.error(`Error detecting newsletter for message ${messageId}:`, err)
-      return null
-    }
-  }
-
-  /**
-   * Check if a message looks like a newsletter based on heuristics
-   */
-  async isNewsletter(messageId: string): Promise<boolean> {
-    try {
-      const message = mailRepository.getMessage(messageId)
-      if (!message) return false
-
-      const emlBuffer = await emlStore.read(message.emlPath)
-      const parsed = await simpleParser(emlBuffer)
-
       const headers = new Map<string, any>()
       for (const [key, value] of parsed.headers) {
         headers.set(key.toLowerCase(), value)
       }
 
-      // Check for newsletter indicators
-      const hasListUnsubscribe = !!headers.get('list-unsubscribe')
-      const hasListId = !!headers.get('list-id')
-      const precedence = headers.get('precedence')
-      const hasPrecedenceBulk = precedence?.toLowerCase() === 'bulk'
-      const xMailer = headers.get('x-mailer') ?? ''
-      const hasKnownEsp = /mailchimp|sendgrid|constantcontact|campaign/i.test(xMailer)
+      // Extract RFC headers
+      const listId = headers.get('list-id') as string | undefined
+      const listUnsubscribe = headers.get('list-unsubscribe') as string | undefined
+      const listUnsubscribePost = headers.get('list-unsubscribe-post') as string | undefined
 
-      // Signal 1: List-Unsubscribe or List-Id headers
-      if (hasListUnsubscribe || hasListId) return true
+      let unsubscribeUrl: string | null = null
+      if (listUnsubscribe) {
+        const match = (listUnsubscribe as string).match(/<(https?:\/\/[^>]+)>/)
+        if (match) {
+          unsubscribeUrl = match[1]
+        }
+      }
+
+      // Signal 1: List-Unsubscribe or List-Id headers (strongest indicator)
+      if (listUnsubscribe || listId) {
+        return { listId: listId ?? null, unsubscribeUrl, unsubscribePost: listUnsubscribePost ?? null }
+      }
 
       // Signal 2: Precedence bulk + known ESP
-      if (hasPrecedenceBulk && hasKnownEsp) return true
+      const precedence = headers.get('precedence') as string | undefined
+      const xMailer = (headers.get('x-mailer') as string | undefined) ?? ''
+      if (precedence?.toLowerCase() === 'bulk' && /mailchimp|sendgrid|constantcontact|campaign/i.test(xMailer)) {
+        return { listId: null, unsubscribeUrl, unsubscribePost: null }
+      }
 
-      // Signal 3: Common noreply patterns
+      // Signal 3: Common noreply sender patterns
       const fromEmail = message.fromEmail.toLowerCase()
       if (
         fromEmail.includes('noreply@') ||
@@ -89,14 +65,23 @@ class SubscriptionService {
         fromEmail.includes('updates@') ||
         fromEmail.includes('notifications@')
       ) {
-        return true
+        return { listId: null, unsubscribeUrl, unsubscribePost: null }
       }
 
-      return false
+      // Not a newsletter
+      return null
     } catch (err) {
-      logger.error(`Error checking if newsletter for ${messageId}:`, err)
-      return false
+      logger.error(`Error detecting newsletter for message ${messageId}:`, err)
+      return null
     }
+  }
+
+  /**
+   * Check if a message looks like a newsletter.
+   * Uses detectFromHeaders internally to avoid double-parsing the EML.
+   */
+  async isNewsletter(messageId: string): Promise<boolean> {
+    return (await this.detectFromHeaders(messageId)) !== null
   }
 
   /**
@@ -200,7 +185,7 @@ class SubscriptionService {
 
   private async postUnsubscribe(url: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      const httpModule = url.startsWith('https') ? require('https') : require('http')
+      const httpModule = url.startsWith('https') ? https : http
       const req = httpModule.request(
         url,
         {
