@@ -8,7 +8,6 @@ import { useAiStore } from '../../store/aiStore'
 import { AccountItem } from '../sidebar/AccountItem'
 import { FolderItem } from '../sidebar/FolderItem'
 import { AddAccountModal } from '../sidebar/AddAccountModal'
-import { SyncStatusBar } from '../sidebar/SyncStatusBar'
 import { SettingsModal } from '../settings/SettingsModal'
 import { AskMailbox } from '../ai/AskMailbox'
 
@@ -269,7 +268,6 @@ export function AccountSidebar() {
       </div>
 
       {/* Sync Status Bar */}
-      <SyncStatusBar />
 
       <AddAccountModal
         open={addModalOpen}

@@ -1,14 +1,17 @@
 import React from 'react'
-import { Button, Tooltip, Divider } from 'antd'
+import { Button, Tooltip, Divider, Spin } from 'antd'
 import {
   StarOutlined,
   StarFilled,
   EyeOutlined,
   EyeInvisibleOutlined,
   DeleteOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  CheckCircleOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons'
 import { useAiStore } from '../../store/aiStore'
+import { useSyncStore } from '../../store/syncStore'
 
 interface MailViewerToolbarProps {
   messageId: string
@@ -29,6 +32,17 @@ export function MailViewerToolbar({
   onSummarize
 }: MailViewerToolbarProps) {
   const aiEnabled = useAiStore((s) => s.enabled)
+  const statuses = useSyncStore((s) => s.statuses)
+
+  const statusList = Object.values(statuses)
+  const syncing = statusList.filter(
+    (s) => s.phase === 'connecting' || s.phase === 'listing' || s.phase === 'fetching'
+  )
+  const errors = statusList.filter((s) => s.phase === 'error')
+  const isAnySyncing = syncing.length > 0
+  const hasErrors = errors.length > 0
+  const syncingStatus = syncing[0]
+
   return (
     <div
       style={{
@@ -127,6 +141,55 @@ export function MailViewerToolbar({
           Forward
         </Button>
       </Tooltip>
+
+      {/* ── Sync status — pushed to the far right ── */}
+      <div
+        style={{
+          marginLeft: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontSize: 12,
+          color: '#a0a0a8',
+          flexShrink: 0
+        }}
+      >
+        {isAnySyncing ? (
+          <>
+            <Spin size="small" />
+            <span style={{ color: '#e2e2e2' }}>
+              {syncingStatus?.mailboxName
+                ? `Syncing ${syncingStatus.mailboxName}`
+                : 'Syncing'}
+              {syncingStatus?.current !== undefined &&
+              syncingStatus?.total !== undefined &&
+              syncingStatus.total > 0
+                ? ` (${syncingStatus.current}/${syncingStatus.total})`
+                : '…'}
+            </span>
+          </>
+        ) : hasErrors ? (
+          <>
+            <ExclamationCircleOutlined style={{ color: '#ff5f5f', fontSize: 13 }} />
+            <span
+              style={{
+                color: '#ff5f5f',
+                maxWidth: 200,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {errors[0]?.error ?? 'Sync error'}
+            </span>
+          </>
+        ) : (
+          <>
+            <CheckCircleOutlined style={{ color: '#52e05c', fontSize: 13 }} />
+            <span>All caught up</span>
+          </>
+        )}
+      </div>
     </div>
   )
 }
