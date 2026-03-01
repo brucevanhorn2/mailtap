@@ -4,6 +4,7 @@ import { useUiStore } from '../../store/uiStore'
 import { AccountSidebar } from './AccountSidebar'
 import { MailListPane } from './MailListPane'
 import { MailViewerPane } from './MailViewerPane'
+import { TitleBar } from './TitleBar'
 
 interface PaneDividerProps {
   current: number
@@ -149,28 +150,41 @@ export function AppLayout() {
     <div
       style={{
         display: 'flex',
+        flexDirection: 'column',
         height: '100vh',
         width: '100vw',
         overflow: 'hidden',
         backgroundColor: '#141414'
       }}
     >
-      {sidebarVisible && (
-        <>
-          <div style={{ width: sidebarWidth, flexShrink: 0, height: '100%', overflow: 'hidden' }}>
-            <AccountSidebar />
-          </div>
-          <PaneDivider current={sidebarWidth} onResize={setSidebarWidth} min={160} max={400} />
-        </>
-      )}
+      {/* Title bar with menu */}
+      <TitleBar />
 
-      <div style={{ width: mailListWidth, flexShrink: 0, height: '100%', overflow: 'hidden' }}>
-        <MailListPane />
-      </div>
-      <PaneDivider current={mailListWidth} onResize={setMailListWidth} min={240} max={560} />
+      {/* Main 3-pane layout */}
+      <div
+        style={{
+          display: 'flex',
+          flex: 1,
+          overflow: 'hidden'
+        }}
+      >
+        {sidebarVisible && (
+          <>
+            <div style={{ width: sidebarWidth, flexShrink: 0, height: '100%', overflow: 'hidden' }}>
+              <AccountSidebar />
+            </div>
+            <PaneDivider current={sidebarWidth} onResize={setSidebarWidth} min={160} max={400} />
+          </>
+        )}
 
-      <div style={{ flex: 1, height: '100%', minWidth: 0, overflow: 'hidden' }}>
-        <MailViewerPane />
+        <div style={{ width: mailListWidth, flexShrink: 0, height: '100%', overflow: 'hidden' }}>
+          <MailListPane />
+        </div>
+        <PaneDivider current={mailListWidth} onResize={setMailListWidth} min={240} max={560} />
+
+        <div style={{ flex: 1, height: '100%', minWidth: 0, overflow: 'hidden' }}>
+          <MailViewerPane />
+        </div>
       </div>
 
       <Modal

@@ -1,3 +1,4 @@
+import { BrowserWindow } from 'electron'
 import { registerSettingsIpc } from './settings.ipc'
 import { registerAccountIpc } from './account.ipc'
 import { registerSyncIpc } from './sync.ipc'
@@ -6,8 +7,9 @@ import { registerSearchIpc } from './search.ipc'
 import { registerMailboxIpc } from './mailbox.ipc'
 import { registerRebuildIpc } from './rebuild.ipc'
 import { registerAiIpc } from './ai.ipc'
+import { registerWindowIpc } from './window.ipc'
 
-export function registerAllIpc(): void {
+export function registerAllIpc(win?: BrowserWindow): void {
   registerSettingsIpc()
   registerAccountIpc()
   registerSyncIpc()
@@ -16,4 +18,7 @@ export function registerAllIpc(): void {
   registerMailboxIpc()
   registerRebuildIpc()
   registerAiIpc()
+  if (win) {
+    registerWindowIpc(win)
+  }
 }

@@ -42,6 +42,15 @@ declare global {
       invoke(channel: 'sync:stop', accountId: string): Promise<IpcResult>
       invoke(channel: 'sync:status'): Promise<SyncStatus[]>
 
+      // Window
+      invoke(channel: 'window:minimize'): Promise<void>
+      invoke(channel: 'window:maximize'): Promise<void>
+      invoke(channel: 'window:close'): Promise<void>
+      invoke(channel: 'app:zoom-in'): Promise<void>
+      invoke(channel: 'app:zoom-out'): Promise<void>
+      invoke(channel: 'app:reset-zoom'): Promise<void>
+      invoke(channel: 'app:open-url', url: string): Promise<void>
+
       // Mail
       invoke(channel: 'mail:list', query: MailListQuery): Promise<MailListResult>
       invoke(channel: 'mail:get', id: string): Promise<Message | null>

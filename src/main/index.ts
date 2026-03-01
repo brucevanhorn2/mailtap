@@ -21,7 +21,8 @@ function createWindow(): BrowserWindow {
     minHeight: 600,
     show: false,
     backgroundColor: '#141414',
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    frame: false,
+    titleBarStyle: 'hidden',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -75,8 +76,8 @@ app.whenReady().then(async () => {
     logger.error('Failed to initialize storage:', err)
   }
 
-  registerAllIpc()
   const win = createWindow()
+  registerAllIpc(win)
 
   // Start IMAP sync
   imapSyncService.setWindow(win)
