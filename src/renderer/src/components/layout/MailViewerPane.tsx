@@ -71,26 +71,6 @@ export function MailViewerPane() {
     setShowSummary(false)
   }, [selectedId])
 
-  if (!selectedId || !selectedMessage) {
-    return (
-      <div
-        style={{
-          flex: 1,
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#141414',
-          flexDirection: 'column',
-          gap: 16
-        }}
-      >
-        <MailOutlined style={{ fontSize: 48, color: '#2a2a2e' }} />
-        <span style={{ color: '#a0a0a8', fontSize: 14 }}>Select an email to read</span>
-      </div>
-    )
-  }
-
   return (
     <div
       style={{
@@ -102,22 +82,39 @@ export function MailViewerPane() {
         overflow: 'hidden'
       }}
     >
-      {/* Toolbar */}
-      <MailViewerToolbar
-        messageId={selectedMessage.id}
-        isRead={selectedMessage.isRead}
-        isStarred={selectedMessage.isStarred}
-        onMarkRead={(isRead) => markRead(selectedMessage.id, isRead)}
-        onStarToggle={() => markStarred(selectedMessage.id, !selectedMessage.isStarred)}
-        onDelete={() => deleteMail(selectedMessage.id)}
-        onSummarize={aiEnabled ? () => {
-          setShowSummary(true)
-          setTimeout(() => summaryRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
-        } : undefined}
-      />
+      {/* Toolbar — always visible */}
+      {selectedMessage && (
+        <MailViewerToolbar
+          messageId={selectedMessage.id}
+          isRead={selectedMessage.isRead}
+          isStarred={selectedMessage.isStarred}
+          onMarkRead={(isRead) => markRead(selectedMessage.id, isRead)}
+          onStarToggle={() => markStarred(selectedMessage.id, !selectedMessage.isStarred)}
+          onDelete={() => deleteMail(selectedMessage.id)}
+          onSummarize={aiEnabled ? () => {
+            setShowSummary(true)
+            setTimeout(() => summaryRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+          } : undefined}
+        />
+      )}
 
-      {/* Scrollable content area — block layout so email body can grow taller than viewport */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      {/* Content area — shows message or empty state */}
+      {!selectedId || !selectedMessage ? (
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column',
+            gap: 16
+          }}
+        >
+          <MailOutlined style={{ fontSize: 48, color: '#2a2a2e' }} />
+          <span style={{ color: '#a0a0a8', fontSize: 14 }}>Select an email to read</span>
+        </div>
+      ) : (
+        <div style={{ flex: 1, overflowY: 'auto' }}>
         {/* Header */}
         <MailHeader message={selectedMessage} />
 
@@ -191,7 +188,8 @@ export function MailViewerPane() {
             <MessageSummary messageId={selectedId} />
           </div>
         )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
