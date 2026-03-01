@@ -9,6 +9,16 @@ export default defineConfig({
       alias: {
         '@shared': resolve('src/shared')
       }
+    },
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/main/index.ts'),
+          'workers/classifier.worker': resolve('src/main/workers/classifier.worker.ts'),
+          'workers/embedder.worker': resolve('src/main/workers/embedder.worker.ts'),
+          'workers/llm.worker': resolve('src/main/workers/llm.worker.ts')
+        }
+      }
     }
   },
   preload: {

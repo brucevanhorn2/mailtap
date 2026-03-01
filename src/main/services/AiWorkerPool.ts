@@ -46,7 +46,7 @@ class AiWorkerPool {
     if (this.classifierWorker) return
     if (!this.classifierStarting) {
       this.classifierStarting = this._spawnWorker(
-        path.join(__dirname, '../workers/classifier.worker.js'),
+        path.join(__dirname, './workers/classifier.worker.js'),
         'Classifier',
         (w) => { this.classifierWorker = w },
         () => { this.classifierWorker = null },
@@ -60,7 +60,7 @@ class AiWorkerPool {
     if (this.embedderWorker) return
     if (!this.embedderStarting) {
       this.embedderStarting = this._spawnWorker(
-        path.join(__dirname, '../workers/embedder.worker.js'),
+        path.join(__dirname, './workers/embedder.worker.js'),
         'Embedder',
         (w) => { this.embedderWorker = w },
         () => { this.embedderWorker = null },
@@ -74,7 +74,7 @@ class AiWorkerPool {
     if (this.llmWorker) return
     if (!this.llmStarting) {
       this.llmStarting = this._spawnWorker(
-        path.join(__dirname, '../workers/llm.worker.js'),
+        path.join(__dirname, './workers/llm.worker.js'),
         'LLM',
         (w) => { this.llmWorker = w },
         () => { this.llmWorker = null },
