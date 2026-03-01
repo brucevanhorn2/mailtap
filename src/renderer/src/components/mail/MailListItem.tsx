@@ -1,5 +1,4 @@
 import React from 'react'
-import { Checkbox } from 'antd'
 import { PaperClipOutlined, StarFilled, StarOutlined } from '@ant-design/icons'
 import type { Message } from '@shared/types'
 import { formatDate } from '../../utils/dateFormat'
@@ -8,24 +7,24 @@ import { AccountBadge } from '../common/AccountBadge'
 interface MailListItemProps {
   message: Message
   isSelected: boolean
-  isChecked: boolean
-  showCheckboxes: boolean
-  onSelect: () => void
-  onCheck: () => void
+  isBulkSelected: boolean
+  onSelect: (e: React.MouseEvent) => void
   onStarToggle: () => void
 }
 
 export function MailListItem({
   message,
   isSelected,
-  isChecked,
-  showCheckboxes,
+  isBulkSelected,
   onSelect,
-  onCheck,
   onStarToggle
 }: MailListItemProps) {
   const [hovered, setHovered] = React.useState(false)
-  const showCheck = showCheckboxes || hovered
+
+  let bg = 'transparent'
+  if (isSelected) bg = '#1a2a3e'
+  else if (isBulkSelected) bg = '#1c2030'
+  else if (hovered) bg = '#1a1a1e'
 
   return (
     <div
@@ -34,9 +33,11 @@ export function MailListItem({
       onMouseLeave={() => setHovered(false)}
       style={{
         padding: '10px 14px',
+        paddingLeft: 11,
         borderBottom: '1px solid #1e1e22',
+        borderLeft: isBulkSelected ? '3px solid #4f9eff' : '3px solid transparent',
         cursor: 'pointer',
-        backgroundColor: isSelected ? '#1a2a3e' : hovered ? '#1a1a1e' : 'transparent',
+        backgroundColor: bg,
         transition: 'background-color 0.1s ease',
         display: 'flex',
         gap: 10,
@@ -61,25 +62,7 @@ export function MailListItem({
         />
       )}
 
-      {/* Avatar / Checkbox slot */}
-      <div
-        style={{ width: 34, height: 34, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        onClick={(e) => {
-          e.stopPropagation()
-          onCheck()
-        }}
-      >
-        {showCheck ? (
-          <Checkbox
-            checked={isChecked}
-            onChange={onCheck}
-            onClick={(e) => e.stopPropagation()}
-            style={{ pointerEvents: 'none' }}
-          />
-        ) : (
-          <AccountBadge email={message.fromEmail} name={message.fromName} size={34} />
-        )}
-      </div>
+      <AccountBadge email={message.fromEmail} name={message.fromName} size={34} />
 
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* Top row: name + date */}

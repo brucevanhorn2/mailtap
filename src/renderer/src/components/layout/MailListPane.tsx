@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react'
-import { Spin, Empty, Progress, Button, Tooltip, Checkbox } from 'antd'
+import { Spin, Empty, Progress, Button, Tooltip } from 'antd'
 import {
   InboxOutlined,
   SearchOutlined,
@@ -57,13 +57,12 @@ export function MailListPane() {
   const isSearching = searchQuery.trim().length > 0
   const displayMessages = isSearching ? searchMessages : messages
 
-  // ── Selection state ───────────────────────────────────────────────────────
+  // ── Bulk selection state ─────────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
+  const lastClickedIndexRef = useRef<number>(-1)
 
-  const allVisibleChecked =
-    displayMessages.length > 0 && displayMessages.every((m) => selectedIds.has(m.id))
-  const someChecked = selectedIds.size > 0
+  const someSelected = selectedIds.size > 0
 
   // ── Load mail list ────────────────────────────────────────────────────────
   const loadMessages = useCallback(
@@ -154,6 +153,7 @@ export function MailListPane() {
   function handleSearchChange(value: string) {
     setSearchQuery(value)
     setSelectedIds(new Set())
+    lastClickedIndexRef.current = -1
     if (searchTimer.current) clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(() => runSearch(value), 300)
   }
@@ -163,6 +163,7 @@ export function MailListPane() {
     setSearchMessages([])
     setSearchTotal(0)
     setSelectedIds(new Set())
+    lastClickedIndexRef.current = -1
     searchInputRef.current?.focus()
   }
 
@@ -180,9 +181,35 @@ export function MailListPane() {
     }
   }, [isSearching, messages.length, total, loadMessages])
 
-  // ── Message selection ────────────────────────────────────────────────────
-  async function handleSelect(id: string) {
+  // ── Message click — supports Ctrl/Cmd+click (toggle) and Shift+click (range) ──
+  async function handleSelect(id: string, e: React.MouseEvent) {
+    const idx = displayMessages.findIndex((m) => m.id === id)
+
+    if (e.shiftKey && lastClickedIndexRef.current >= 0) {
+      // Range select: add all messages between last click and this one
+      const lo = Math.min(lastClickedIndexRef.current, idx)
+      const hi = Math.max(lastClickedIndexRef.current, idx)
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        for (let i = lo; i <= hi; i++) next.add(displayMessages[i].id)
+        return next
+      })
+    } else if (e.ctrlKey || e.metaKey) {
+      // Toggle individual selection
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(id)) next.delete(id)
+        else next.add(id)
+        return next
+      })
+    } else {
+      // Plain click: clear selection, open message
+      setSelectedIds(new Set())
+    }
+
+    lastClickedIndexRef.current = idx
     setSelectedId(id)
+
     const msg = displayMessages.find((m) => m.id === id)
     if (msg && !msg.isRead) {
       try {
@@ -191,23 +218,6 @@ export function MailListPane() {
       } catch {
         // non-critical
       }
-    }
-  }
-
-  function handleCheck(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  function handleToggleAll() {
-    if (allVisibleChecked) {
-      setSelectedIds(new Set())
-    } else {
-      setSelectedIds(new Set(displayMessages.map((m) => m.id)))
     }
   }
 
@@ -250,6 +260,7 @@ export function MailListPane() {
     } finally {
       setBulkLoading(false)
       setSelectedIds(new Set())
+      lastClickedIndexRef.current = -1
     }
   }
 
@@ -342,15 +353,7 @@ export function MailListPane() {
           minHeight: 36
         }}
       >
-        {/* Select-all checkbox */}
-        <Checkbox
-          checked={allVisibleChecked}
-          indeterminate={someChecked && !allVisibleChecked}
-          onChange={handleToggleAll}
-          style={{ flexShrink: 0 }}
-        />
-
-        {someChecked ? (
+        {someSelected ? (
           <>
             <span style={{ fontSize: 12, color: '#a0a0a8', flex: 1 }}>
               {selectedIds.size} selected
@@ -387,7 +390,7 @@ export function MailListPane() {
               type="text"
               size="small"
               style={{ color: '#6a6a72', fontSize: 11 }}
-              onClick={() => setSelectedIds(new Set())}
+              onClick={() => { setSelectedIds(new Set()); lastClickedIndexRef.current = -1 }}
             >
               Clear
             </Button>
@@ -512,10 +515,8 @@ export function MailListPane() {
                 key={message.id}
                 message={message}
                 isSelected={selectedId === message.id}
-                isChecked={selectedIds.has(message.id)}
-                showCheckboxes={someChecked}
-                onSelect={() => handleSelect(message.id)}
-                onCheck={() => handleCheck(message.id)}
+                isBulkSelected={selectedIds.has(message.id)}
+                onSelect={(e) => handleSelect(message.id, e)}
                 onStarToggle={() => handleStarToggle(message.id)}
               />
             ))}
