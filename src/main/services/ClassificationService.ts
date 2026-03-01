@@ -51,14 +51,28 @@ class ClassificationService {
       // Update message with classification results
       if (classificationResult) {
         const db = storageService.db
+
+        // Derive spam score from label confidences
+        const spamScore = classificationResult.labels['spam'] ?? 0
+
+        // Derive threat score from security/phishing label confidences
+        const threatScore = Math.max(
+          classificationResult.labels['phishing'] ?? 0,
+          classificationResult.labels['security alert'] ?? 0
+        )
+
         db.prepare(
           `UPDATE messages SET
             ai_labels = ?,
+            ai_spam_score = ?,
+            ai_threat_score = ?,
             ai_sentiment = ?,
             ai_classified_at = ?
           WHERE id = ?`
         ).run(
           JSON.stringify(classificationResult.labels),
+          spamScore,
+          threatScore,
           classificationResult.sentiment ? JSON.stringify(classificationResult.sentiment) : null,
           Date.now(),
           messageId
@@ -131,14 +145,18 @@ class ClassificationService {
       onProgress?.({ current: 0, total, phase: 'Classifying messages' })
 
       const defaultLabels = [
-        'commercial/sales',
+        'work',
         'personal',
-        'legal document',
-        'financial',
-        'recruitment/job offer',
+        'newsletter',
+        'billing',
+        'spam',
+        'promotional',
+        'shipping',
+        'travel',
         'security alert',
+        'phishing',
         'social notification',
-        'noise'
+        'financial'
       ]
 
       for (let i = 0; i < unclassifiedMessages.length; i += batchSize) {

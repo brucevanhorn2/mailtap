@@ -120,7 +120,9 @@ export function registerAiIpc(): void {
 
   ipcMain.handle('ai:classify-batch', async () => {
     try {
-      await aiPipelineService.processQueue()
+      // Call classificationService directly — this should work regardless of
+      // whether the background pipeline is enabled or not
+      await classificationService.processQueue()
       return { success: true } as IpcResult
     } catch (err) {
       logger.error('Error processing classification batch:', err)

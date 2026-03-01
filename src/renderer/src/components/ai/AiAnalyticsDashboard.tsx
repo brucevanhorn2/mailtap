@@ -294,6 +294,7 @@ export function AiAnalyticsDashboard({ visible, onClose }: AiAnalyticsDashboardP
                       stroke="#a0a0a8"
                       style={{ fontSize: 12 }}
                       tick={{ fill: '#a0a0a8' }}
+                      allowDecimals={false}
                     />
                     <Tooltip
                       contentStyle={{

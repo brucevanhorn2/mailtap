@@ -176,10 +176,12 @@ class AiWorkerPool {
     const requestId = String(this.requestIdCounter++)
 
     return new Promise((resolve, reject) => {
+      // First request may need to download models (~100 MB), allow 5 minutes
+      const timeoutMs = 300000
       const timeout = setTimeout(() => {
         pending.delete(requestId)
-        reject(new Error(`Worker request ${method} timed out after 30s`))
-      }, 30000)
+        reject(new Error(`Worker request ${method} timed out after ${timeoutMs / 1000}s`))
+      }, timeoutMs)
 
       pending.set(requestId, { resolve, reject, timeout })
 

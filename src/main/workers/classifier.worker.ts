@@ -1,9 +1,5 @@
 import { parentPort } from 'worker_threads'
 
-// Note: In Phase 2, this is a stub that returns mock data.
-// In a real implementation, this would load Transformers.js and the DeBERTa model.
-// For now, we'll return reasonable defaults to test the infrastructure.
-
 interface WorkerRequest {
   requestId: string
   method: string
@@ -16,6 +12,78 @@ interface WorkerResponse {
   error?: string
 }
 
+// Lazy-loaded pipelines
+let classifier: any = null
+let sentimentAnalyzer: any = null
+
+async function loadClassifier() {
+  if (classifier) return
+
+  try {
+    const { pipeline } = await import('@huggingface/transformers')
+    classifier = await pipeline(
+      'zero-shot-classification',
+      'Xenova/mobilebert-uncased-mnli',
+      { dtype: 'q8' }
+    )
+    console.log('[classifier-worker] MobileBERT-MNLI model loaded (zero-shot classification)')
+  } catch (err) {
+    console.error('[classifier-worker] Failed to load classifier model:', err)
+    throw err
+  }
+}
+
+async function loadSentiment() {
+  if (sentimentAnalyzer) return
+
+  try {
+    const { pipeline } = await import('@huggingface/transformers')
+    sentimentAnalyzer = await pipeline(
+      'sentiment-analysis',
+      'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
+      { dtype: 'q8' }
+    )
+    console.log('[classifier-worker] DistilBERT-SST2 model loaded (sentiment analysis)')
+  } catch (err) {
+    console.error('[classifier-worker] Failed to load sentiment model:', err)
+    throw err
+  }
+}
+
+async function classifyText(
+  text: string,
+  labels: string[]
+): Promise<{ labels: Record<string, number>; sentiment: { label: string; score: number } | null }> {
+  // Load models on first use
+  await loadClassifier()
+  await loadSentiment()
+
+  // Run zero-shot classification
+  const classResult = await classifier(text, labels, { multi_label: true })
+
+  // Build label->score map
+  const labelScores: Record<string, number> = {}
+  for (let i = 0; i < classResult.labels.length; i++) {
+    labelScores[classResult.labels[i]] = classResult.scores[i]
+  }
+
+  // Run sentiment analysis
+  let sentiment: { label: string; score: number } | null = null
+  try {
+    const sentResult = await sentimentAnalyzer(text)
+    if (sentResult && sentResult.length > 0) {
+      sentiment = {
+        label: sentResult[0].label.toLowerCase(),
+        score: sentResult[0].score
+      }
+    }
+  } catch (err) {
+    console.error('[classifier-worker] Sentiment analysis error:', err)
+  }
+
+  return { labels: labelScores, sentiment }
+}
+
 if (parentPort) {
   parentPort.on('message', async (request: WorkerRequest) => {
     try {
@@ -25,25 +93,8 @@ if (parentPort) {
 
       switch (method) {
         case 'classify': {
-          const [_text, labels] = args as [string, string[]]
-          // Mock implementation: assign equal probability to each label
-          const mockLabels: Record<string, number> = {}
-          for (const label of labels) {
-            mockLabels[label] = Math.random()
-          }
-          // Normalize to sum to 1
-          const sum = Object.values(mockLabels).reduce((a, b) => a + b, 0)
-          for (const key in mockLabels) {
-            mockLabels[key] = mockLabels[key] / sum
-          }
-
-          result = {
-            labels: mockLabels,
-            sentiment: {
-              label: 'neutral',
-              score: 0.5
-            }
-          }
+          const [text, labels] = args as [string, string[]]
+          result = await classifyText(text, labels)
           break
         }
 

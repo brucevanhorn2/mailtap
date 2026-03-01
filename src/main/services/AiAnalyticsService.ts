@@ -121,16 +121,15 @@ class AiAnalyticsService {
 
       const cutoffTime = Date.now() - range * msPerGranule
 
-      // Use bound parameters throughout — msPerGranule is a safe allowlisted integer
-      // but we still bind it to avoid any interpolation risk
+      // Use the email's actual date (Date header), not received_at (sync timestamp)
       const queryParams: (string | number)[] = [msPerGranule, msPerGranule, cutoffTime]
       let query = `
         SELECT
-          CAST((received_at / ?) * ? as INTEGER) as timestamp,
+          CAST((date / ?) * ? as INTEGER) as timestamp,
           COUNT(*) as count
         FROM messages
         WHERE is_deleted = 0
-          AND received_at > ?
+          AND date > ?
       `
       if (accountId) {
         query += ' AND account_id = ?'
