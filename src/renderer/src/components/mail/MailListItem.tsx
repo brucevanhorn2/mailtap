@@ -35,32 +35,15 @@ export function MailListItem({
         padding: '10px 14px',
         paddingLeft: 11,
         borderBottom: '1px solid #1e1e22',
-        borderLeft: isBulkSelected ? '3px solid #4f9eff' : '3px solid transparent',
+        borderLeft: (!message.isRead || isBulkSelected) ? '3px solid #4f9eff' : '3px solid transparent',
         cursor: 'pointer',
         backgroundColor: bg,
         transition: 'background-color 0.1s ease',
         display: 'flex',
         gap: 10,
-        alignItems: 'flex-start',
-        position: 'relative'
+        alignItems: 'flex-start'
       }}
     >
-      {/* Unread indicator dot */}
-      {!message.isRead && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 4,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            width: 5,
-            height: 5,
-            borderRadius: '50%',
-            backgroundColor: '#4f9eff',
-            flexShrink: 0
-          }}
-        />
-      )}
 
       <AccountBadge email={message.fromEmail} name={message.fromName} size={34} />
 
