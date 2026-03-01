@@ -291,7 +291,7 @@ export function MailListPane() {
       {/* ── Search bar ─────────────────────────────────────────────────── */}
       <div
         style={{
-          padding: '8px 10px',
+          padding: '6px 8px',
           borderBottom: '1px solid #2a2a2e',
           flexShrink: 0
         }}
@@ -304,7 +304,7 @@ export function MailListPane() {
             backgroundColor: '#1c1c1e',
             border: `1px solid ${isSearching ? '#4f9eff55' : '#2a2a2e'}`,
             borderRadius: 6,
-            padding: '5px 10px',
+            padding: '4px 8px',
             transition: 'border-color 0.15s'
           }}
         >
@@ -344,11 +344,11 @@ export function MailListPane() {
       {/* ── Toolbar: folder title / bulk actions ───────────────────────── */}
       <div
         style={{
-          padding: '6px 14px',
+          padding: '6px 10px',
           borderBottom: '1px solid #2a2a2e',
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
+          gap: 6,
           flexShrink: 0,
           minHeight: 36
         }}

@@ -49,7 +49,7 @@ export function MailViewerToolbar({
         display: 'flex',
         alignItems: 'center',
         gap: 4,
-        padding: '8px 16px',
+        padding: '8px 12px',
         backgroundColor: '#0f0f10',
         borderBottom: '1px solid #2a2a2e',
         flexShrink: 0
