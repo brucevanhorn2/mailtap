@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { Spin } from 'antd'
-import { MailOutlined } from '@ant-design/icons'
+import { MailOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import type { Attachment } from '@shared/types'
 import { useMailStore } from '../../store/mailStore'
 import { useAiStore } from '../../store/aiStore'
+import { useSyncStore } from '../../store/syncStore'
 import { ErrorBanner } from '../common/ErrorBanner'
 import { MailHeader } from '../viewer/MailHeader'
 import { MailBody } from '../viewer/MailBody'
@@ -25,6 +26,7 @@ export function MailViewerPane() {
     useMailViewer()
   const { deleteMail, markRead, markStarred } = useMail()
   const aiEnabled = useAiStore((s) => s.enabled)
+  const statuses = useSyncStore((s) => s.statuses)
 
   const [bodyData, setBodyData] = useState<MailBodyData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -71,6 +73,16 @@ export function MailViewerPane() {
     setShowSummary(false)
   }, [selectedId])
 
+  // Compute sync status
+  const statusList = Object.values(statuses)
+  const syncing = statusList.filter(
+    (s) => s.phase === 'connecting' || s.phase === 'listing' || s.phase === 'fetching'
+  )
+  const errors = statusList.filter((s) => s.phase === 'error')
+  const isAnySyncing = syncing.length > 0
+  const hasErrors = errors.length > 0
+  const syncingStatus = syncing[0]
+
   return (
     <div
       style={{
@@ -83,7 +95,7 @@ export function MailViewerPane() {
       }}
     >
       {/* Toolbar — always visible */}
-      {selectedMessage && (
+      {selectedMessage ? (
         <MailViewerToolbar
           messageId={selectedMessage.id}
           isRead={selectedMessage.isRead}
@@ -96,6 +108,58 @@ export function MailViewerPane() {
             setTimeout(() => summaryRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
           } : undefined}
         />
+      ) : (
+        /* Show status bar when no message selected */
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '8px 12px',
+            backgroundColor: '#0f0f10',
+            borderBottom: '1px solid #2a2a2e',
+            flexShrink: 0,
+            justifyContent: 'flex-end'
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 12,
+              color: '#a0a0a8'
+            }}
+          >
+            {isAnySyncing ? (
+              <>
+                <Spin size="small" />
+                <span style={{ color: '#e2e2e2' }}>
+                  {syncingStatus?.mailboxName
+                    ? `Syncing ${syncingStatus.mailboxName}`
+                    : 'Syncing'}
+                  {syncingStatus?.current !== undefined &&
+                  syncingStatus?.total !== undefined &&
+                  syncingStatus.total > 0
+                    ? ` (${syncingStatus.current}/${syncingStatus.total})`
+                    : '…'}
+                </span>
+              </>
+            ) : hasErrors ? (
+              <>
+                <ExclamationCircleOutlined style={{ color: '#ff5f5f', fontSize: 13 }} />
+                <span style={{ color: '#ff5f5f', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {errors[0]?.error ?? 'Sync error'}
+                </span>
+              </>
+            ) : (
+              <>
+                <CheckCircleOutlined style={{ color: '#52e05c', fontSize: 13 }} />
+                <span>All caught up</span>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Content area — shows message or empty state */}
