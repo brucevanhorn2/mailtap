@@ -291,7 +291,7 @@ export function MailListPane() {
       {/* ── Search bar ─────────────────────────────────────────────────── */}
       <div
         style={{
-          padding: '6px 8px',
+          padding: '6px 10px',
           borderBottom: '1px solid #2a2a2e',
           flexShrink: 0
         }}
@@ -304,7 +304,7 @@ export function MailListPane() {
             backgroundColor: '#1c1c1e',
             border: `1px solid ${isSearching ? '#4f9eff55' : '#2a2a2e'}`,
             borderRadius: 6,
-            padding: '4px 8px',
+            padding: '5px 10px',
             transition: 'border-color 0.15s'
           }}
         >
@@ -475,7 +475,7 @@ export function MailListPane() {
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}
+        style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}
       >
         {(loading || searchLoading) && displayMessages.length === 0 ? (
           <div

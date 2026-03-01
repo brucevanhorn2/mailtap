@@ -151,13 +151,15 @@ export function MailViewerToolbar({
           gap: 6,
           fontSize: 12,
           color: '#a0a0a8',
-          flexShrink: 0
+          flexShrink: 1,
+          minWidth: 100,
+          overflow: 'hidden'
         }}
       >
         {isAnySyncing ? (
           <>
             <Spin size="small" />
-            <span style={{ color: '#e2e2e2' }}>
+            <span style={{ color: '#e2e2e2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
               {syncingStatus?.mailboxName
                 ? `Syncing ${syncingStatus.mailboxName}`
                 : 'Syncing'}
@@ -186,7 +188,7 @@ export function MailViewerToolbar({
         ) : (
           <>
             <CheckCircleOutlined style={{ color: '#52e05c', fontSize: 13 }} />
-            <span>All caught up</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>All caught up</span>
           </>
         )}
       </div>

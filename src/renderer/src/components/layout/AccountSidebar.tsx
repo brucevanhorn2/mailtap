@@ -148,7 +148,7 @@ export function AccountSidebar() {
       </div>
 
       {/* Account + Folder List */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '4px 2px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 4px' }}>
         {accounts.map((account) => {
           const isExpanded = expandedAccounts.has(account.id)
           const isAccountSelected = activeAccountId === account.id && activeMailboxId === null
@@ -229,11 +229,11 @@ export function AccountSidebar() {
       {/* Add Account + Settings + Ask AI Buttons */}
       <div
         style={{
-          padding: '6px',
+          padding: '8px 10px',
           borderTop: '1px solid #2a2a2e',
           flexShrink: 0,
           display: 'flex',
-          gap: 4
+          gap: 6
         }}
       >
         <Tooltip title="Add Email Account" placement="right">
