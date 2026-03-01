@@ -127,13 +127,14 @@ export function AccountSidebar() {
       {/* App Title */}
       <div
         style={{
-          padding: '10px 14px',
+          padding: '6px 14px',
           borderBottom: '1px solid #2a2a2e',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexShrink: 0,
-          minHeight: 32
+          minHeight: 32,
+          lineHeight: 1
         }}
       >
         <span

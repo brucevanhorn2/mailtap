@@ -296,11 +296,13 @@ export function MailListPane() {
           flexShrink: 0,
           minHeight: 32,
           display: 'flex',
-          alignItems: 'center'
+          alignItems: 'center',
+          gap: 8
         }}
       >
         <div
           style={{
+            flex: 1,
             display: 'flex',
             alignItems: 'center',
             gap: 6,
@@ -308,7 +310,8 @@ export function MailListPane() {
             border: `1px solid ${isSearching ? '#4f9eff55' : '#2a2a2e'}`,
             borderRadius: 6,
             padding: '5px 10px',
-            transition: 'border-color 0.15s'
+            transition: 'border-color 0.15s',
+            minWidth: 0
           }}
         >
           {searchLoading ? (
@@ -321,7 +324,7 @@ export function MailListPane() {
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             onKeyDown={(e) => e.key === 'Escape' && clearSearch()}
-            placeholder="Search mail — try  from:alice  is:unread  has:attachment…"
+            placeholder="Search mail…"
             style={{
               flex: 1,
               border: 'none',
@@ -342,6 +345,11 @@ export function MailListPane() {
             </span>
           )}
         </div>
+        <Tooltip title="Search tips: from:alice  is:unread  has:attachment  subject:urgent…" placement="bottom">
+          <div style={{ cursor: 'help', color: '#6a6a72', fontSize: 14, flexShrink: 0 }}>
+            ?
+          </div>
+        </Tooltip>
       </div>
 
       {/* ── Toolbar: folder title / bulk actions ───────────────────────── */}
