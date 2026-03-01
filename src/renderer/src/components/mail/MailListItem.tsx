@@ -7,12 +7,24 @@ import { AccountBadge } from '../common/AccountBadge'
 interface MailListItemProps {
   message: Message
   isSelected: boolean
-  onSelect: () => void
+  isBulkSelected: boolean
+  onSelect: (e: React.MouseEvent) => void
   onStarToggle: () => void
 }
 
-export function MailListItem({ message, isSelected, onSelect, onStarToggle }: MailListItemProps) {
+export function MailListItem({
+  message,
+  isSelected,
+  isBulkSelected,
+  onSelect,
+  onStarToggle
+}: MailListItemProps) {
   const [hovered, setHovered] = React.useState(false)
+
+  let bg = 'transparent'
+  if (isSelected) bg = '#1a2a3e'
+  else if (isBulkSelected) bg = '#1c2030'
+  else if (hovered) bg = '#1a1a1e'
 
   return (
     <div
@@ -21,32 +33,17 @@ export function MailListItem({ message, isSelected, onSelect, onStarToggle }: Ma
       onMouseLeave={() => setHovered(false)}
       style={{
         padding: '10px 14px',
+        paddingLeft: 11,
         borderBottom: '1px solid #1e1e22',
+        borderLeft: (!message.isRead || isBulkSelected) ? '3px solid #4f9eff' : '3px solid transparent',
         cursor: 'pointer',
-        backgroundColor: isSelected ? '#1a2a3e' : hovered ? '#1a1a1e' : 'transparent',
+        backgroundColor: bg,
         transition: 'background-color 0.1s ease',
         display: 'flex',
         gap: 10,
-        alignItems: 'flex-start',
-        position: 'relative'
+        alignItems: 'flex-start'
       }}
     >
-      {/* Unread indicator */}
-      {!message.isRead && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 4,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            width: 5,
-            height: 5,
-            borderRadius: '50%',
-            backgroundColor: '#4f9eff',
-            flexShrink: 0
-          }}
-        />
-      )}
 
       <AccountBadge email={message.fromEmail} name={message.fromName} size={34} />
 

@@ -1,11 +1,19 @@
-import React, { useEffect, useRef, useCallback } from 'react'
-import { Spin, Empty, Progress } from 'antd'
-import { InboxOutlined } from '@ant-design/icons'
-import type { MailListQuery } from '@shared/types'
+import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react'
+import { Spin, Empty, Progress, Button, Tooltip } from 'antd'
+import {
+  InboxOutlined,
+  SearchOutlined,
+  CloseOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined,
+  DeleteOutlined
+} from '@ant-design/icons'
+import type { MailListQuery, Message } from '@shared/types'
 import { useMailStore } from '../../store/mailStore'
 import { useSyncStore } from '../../store/syncStore'
 import { MailListItem } from '../mail/MailListItem'
 import { ErrorBanner } from '../common/ErrorBanner'
+import { parseQuery } from '../../utils/searchParser'
 
 const PAGE_SIZE = 50
 
@@ -37,7 +45,26 @@ export function MailListPane() {
   const [error, setError] = React.useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const loadingMoreRef = useRef(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
+  // ── Search state ─────────────────────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchMessages, setSearchMessages] = useState<Message[]>([])
+  const [searchTotal, setSearchTotal] = useState(0)
+  const [searchLoading, setSearchLoading] = useState(false)
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const isSearching = searchQuery.trim().length > 0
+  const displayMessages = isSearching ? searchMessages : messages
+
+  // ── Bulk selection state ─────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const lastClickedIndexRef = useRef<number>(-1)
+
+  const someSelected = selectedIds.size > 0
+
+  // ── Load mail list ────────────────────────────────────────────────────────
   const loadMessages = useCallback(
     async (reset = true) => {
       if (loading && !reset) return
@@ -66,39 +93,124 @@ export function MailListPane() {
     [activeAccountId, activeMailboxId, offset, loading, setMessages, appendMessages, setLoading]
   )
 
-  // Reload when active mailbox changes
+  // Reload when active mailbox changes; clear search + selection
   useEffect(() => {
+    setSearchQuery('')
+    setSearchMessages([])
+    setSelectedIds(new Set())
     loadMessages(true)
-    // Scroll to top when mailbox changes
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = 0
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (scrollRef.current) scrollRef.current.scrollTop = 0
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAccountId, activeMailboxId])
 
-  // Reload when new messages arrive during sync
+  // Reload when new messages arrive
   useEffect(() => {
     if (refreshCounter > 0) loadMessages(true)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshCounter])
 
-  // Infinite scroll
+  // ── Focus search on Ctrl+K ───────────────────────────────────────────────
+  useEffect(() => {
+    const handler = () => {
+      searchInputRef.current?.focus()
+      searchInputRef.current?.select()
+    }
+    window.addEventListener('mailtap:focus-search', handler)
+    return () => window.removeEventListener('mailtap:focus-search', handler)
+  }, [])
+
+  // ── Run search ───────────────────────────────────────────────────────────
+  const runSearch = useCallback(
+    async (raw: string) => {
+      const trimmed = raw.trim()
+      if (!trimmed) {
+        setSearchMessages([])
+        setSearchTotal(0)
+        return
+      }
+      setSearchLoading(true)
+      try {
+        const parsed = parseQuery(trimmed)
+        const q = {
+          ...parsed.query,
+          accountId: activeAccountId ?? undefined,
+          limit: 100,
+          offset: 0
+        }
+        const page = await window.mailtap.invoke('search:query', q)
+        setSearchMessages(page.results.map((r) => r.message))
+        setSearchTotal(page.total)
+      } catch {
+        setSearchMessages([])
+        setSearchTotal(0)
+      } finally {
+        setSearchLoading(false)
+      }
+    },
+    [activeAccountId]
+  )
+
+  function handleSearchChange(value: string) {
+    setSearchQuery(value)
+    setSelectedIds(new Set())
+    lastClickedIndexRef.current = -1
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => runSearch(value), 300)
+  }
+
+  function clearSearch() {
+    setSearchQuery('')
+    setSearchMessages([])
+    setSearchTotal(0)
+    setSelectedIds(new Set())
+    lastClickedIndexRef.current = -1
+    searchInputRef.current?.focus()
+  }
+
+  // ── Infinite scroll (regular list only) ─────────────────────────────────
   const handleScroll = useCallback(() => {
+    if (isSearching) return
     const el = scrollRef.current
     if (!el) return
     if (loadingMoreRef.current) return
     if (messages.length >= total) return
-
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
     if (distanceFromBottom < 120) {
       loadingMoreRef.current = true
       loadMessages(false)
     }
-  }, [messages.length, total, loadMessages])
+  }, [isSearching, messages.length, total, loadMessages])
 
-  async function handleSelect(id: string) {
+  // ── Message click — supports Ctrl/Cmd+click (toggle) and Shift+click (range) ──
+  async function handleSelect(id: string, e: React.MouseEvent) {
+    const idx = displayMessages.findIndex((m) => m.id === id)
+
+    if (e.shiftKey && lastClickedIndexRef.current >= 0) {
+      // Range select: add all messages between last click and this one
+      const lo = Math.min(lastClickedIndexRef.current, idx)
+      const hi = Math.max(lastClickedIndexRef.current, idx)
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        for (let i = lo; i <= hi; i++) next.add(displayMessages[i].id)
+        return next
+      })
+    } else if (e.ctrlKey || e.metaKey) {
+      // Toggle individual selection
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(id)) next.delete(id)
+        else next.add(id)
+        return next
+      })
+    } else {
+      // Plain click: clear selection, open message
+      setSelectedIds(new Set())
+    }
+
+    lastClickedIndexRef.current = idx
     setSelectedId(id)
-    const msg = messages.find((m) => m.id === id)
+
+    const msg = displayMessages.find((m) => m.id === id)
     if (msg && !msg.isRead) {
       try {
         await window.mailtap.invoke('mail:mark-read', id, true)
@@ -112,18 +224,58 @@ export function MailListPane() {
   async function handleStarToggle(id: string) {
     const msg = messages.find((m) => m.id === id)
     if (!msg) return
-    const newStarred = !msg.isStarred
-    markStarred(id, newStarred)
-    // Optimistic — no IPC for star in current API, so just update local state
+    markStarred(id, !msg.isStarred)
   }
 
-  const getFolderTitle = () => {
+  // ── Bulk actions ─────────────────────────────────────────────────────────
+  async function bulkMarkRead(isRead: boolean) {
+    if (bulkLoading) return
+    setBulkLoading(true)
+    try {
+      for (const id of selectedIds) {
+        await window.mailtap.invoke('mail:mark-read', id, isRead)
+        markRead(id, isRead)
+      }
+    } finally {
+      setBulkLoading(false)
+      setSelectedIds(new Set())
+    }
+  }
+
+  async function bulkDelete() {
+    if (bulkLoading) return
+    setBulkLoading(true)
+    try {
+      const toDelete = Array.from(selectedIds)
+      for (const id of toDelete) {
+        await window.mailtap.invoke('mail:delete', id)
+      }
+      // Reload the list to reflect deletions
+      if (isSearching) {
+        runSearch(searchQuery)
+      } else {
+        loadMessages(true)
+      }
+      if (toDelete.includes(selectedId ?? '')) setSelectedId(null)
+    } finally {
+      setBulkLoading(false)
+      setSelectedIds(new Set())
+      lastClickedIndexRef.current = -1
+    }
+  }
+
+  // ── Folder title ─────────────────────────────────────────────────────────
+  const folderTitle = useMemo(() => {
+    if (isSearching) return `${searchTotal} result${searchTotal !== 1 ? 's' : ''}`
     if (!activeAccountId && !activeMailboxId) return 'All Mail'
     if (activeAccountId && !activeMailboxId) return 'Account Inbox'
     return 'Inbox'
-  }
+  }, [isSearching, searchTotal, activeAccountId, activeMailboxId])
 
-  const unreadCount = messages.filter((m) => !m.isRead).length
+  const unreadCount = useMemo(
+    () => (isSearching ? 0 : messages.filter((m) => !m.isRead).length),
+    [isSearching, messages]
+  )
 
   return (
     <div
@@ -136,98 +288,207 @@ export function MailListPane() {
         backgroundColor: '#141414'
       }}
     >
-      {/* Toolbar */}
+      {/* ── Search bar ─────────────────────────────────────────────────── */}
       <div
         style={{
-          padding: '10px 14px',
+          padding: '6px 10px',
+          borderBottom: '1px solid #2a2a2e',
+          flexShrink: 0,
+          minHeight: 32,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8
+        }}
+      >
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            backgroundColor: '#1c1c1e',
+            border: `1px solid ${isSearching ? '#4f9eff55' : '#2a2a2e'}`,
+            borderRadius: 6,
+            padding: '5px 10px',
+            transition: 'border-color 0.15s',
+            minWidth: 0
+          }}
+        >
+          {searchLoading ? (
+            <Spin size="small" style={{ flexShrink: 0 }} />
+          ) : (
+            <SearchOutlined style={{ color: '#6a6a72', fontSize: 13, flexShrink: 0 }} />
+          )}
+          <input
+            ref={searchInputRef}
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onKeyDown={(e) => e.key === 'Escape' && clearSearch()}
+            placeholder="Search mail…"
+            style={{
+              flex: 1,
+              border: 'none',
+              outline: 'none',
+              backgroundColor: 'transparent',
+              color: '#e2e2e2',
+              fontSize: 12,
+              fontFamily: 'inherit',
+              minWidth: 0
+            }}
+          />
+          {isSearching && (
+            <span
+              onClick={clearSearch}
+              style={{ cursor: 'pointer', color: '#6a6a72', display: 'flex', alignItems: 'center' }}
+            >
+              <CloseOutlined style={{ fontSize: 11 }} />
+            </span>
+          )}
+        </div>
+        <Tooltip title="Search tips: from:alice  is:unread  has:attachment  subject:urgent…" placement="bottom">
+          <div style={{ cursor: 'help', color: '#6a6a72', fontSize: 14, flexShrink: 0 }}>
+            ?
+          </div>
+        </Tooltip>
+      </div>
+
+      {/* ── Toolbar: folder title / bulk actions ───────────────────────── */}
+      <div
+        style={{
+          padding: '6px 10px',
           borderBottom: '1px solid #2a2a2e',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          gap: 6,
           flexShrink: 0,
-          minHeight: 44
+          minHeight: 36
         }}
       >
-        <span style={{ fontSize: 14, fontWeight: 600, color: '#e2e2e2' }}>
-          {getFolderTitle()}
-        </span>
-        {unreadCount > 0 && (
-          <span
-            style={{
-              fontSize: 12,
-              color: '#a0a0a8',
-              backgroundColor: '#1c1c1e',
-              borderRadius: 10,
-              padding: '1px 8px'
-            }}
-          >
-            {unreadCount} unread
-          </span>
+        {someSelected ? (
+          <>
+            <span style={{ fontSize: 12, color: '#a0a0a8', flex: 1 }}>
+              {selectedIds.size} selected
+            </span>
+            <Tooltip title="Mark as read">
+              <Button
+                type="text"
+                size="small"
+                icon={<EyeOutlined style={{ color: '#a0a0a8' }} />}
+                loading={bulkLoading}
+                onClick={() => bulkMarkRead(true)}
+              />
+            </Tooltip>
+            <Tooltip title="Mark as unread">
+              <Button
+                type="text"
+                size="small"
+                icon={<EyeInvisibleOutlined style={{ color: '#a0a0a8' }} />}
+                loading={bulkLoading}
+                onClick={() => bulkMarkRead(false)}
+              />
+            </Tooltip>
+            <Tooltip title="Delete selected">
+              <Button
+                type="text"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                loading={bulkLoading}
+                onClick={bulkDelete}
+              />
+            </Tooltip>
+            <Button
+              type="text"
+              size="small"
+              style={{ color: '#6a6a72', fontSize: 11 }}
+              onClick={() => { setSelectedIds(new Set()); lastClickedIndexRef.current = -1 }}
+            >
+              Clear
+            </Button>
+          </>
+        ) : (
+          <>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e2e2', flex: 1 }}>
+              {folderTitle}
+            </span>
+            {unreadCount > 0 && (
+              <span
+                style={{
+                  fontSize: 12,
+                  color: '#a0a0a8',
+                  backgroundColor: '#1c1c1e',
+                  borderRadius: 10,
+                  padding: '1px 8px'
+                }}
+              >
+                {unreadCount} unread
+              </span>
+            )}
+          </>
         )}
       </div>
 
-      {/* Inline sync progress strip */}
-      {syncStatus && (syncStatus.phase === 'connecting' || syncStatus.phase === 'listing' || syncStatus.phase === 'fetching') && (
-        <div
-          style={{
-            height: 22,
-            borderBottom: '1px solid #2a2a2e',
-            display: 'flex',
-            alignItems: 'center',
-            padding: '0 12px',
-            gap: 6,
-            flexShrink: 0,
-            backgroundColor: '#0f0f0f'
-          }}
-        >
-          {syncStatus.phase === 'connecting' && (
-            <>
-              <Spin size="small" />
-              <span style={{ fontSize: 11, color: '#a0a0a8' }}>Connecting…</span>
-            </>
-          )}
-          {syncStatus.phase === 'listing' && (
-            <>
-              <Spin size="small" />
-              <span style={{ fontSize: 11, color: '#a0a0a8' }}>Loading mailboxes…</span>
-            </>
-          )}
-          {syncStatus.phase === 'fetching' && !syncStatus.total && (
-            <>
-              <Spin size="small" />
-              <span style={{ fontSize: 11, color: '#a0a0a8' }}>Fetching messages…</span>
-            </>
-          )}
-          {syncStatus.phase === 'fetching' && syncStatus.total && (
-            <Progress
-              percent={Math.round(((syncStatus.current ?? 0) / syncStatus.total) * 100)}
-              size="small"
-              status="active"
-              format={() => `${syncStatus.current ?? 0} of ${syncStatus.total}`}
-              style={{ flex: 1, margin: 0 }}
-            />
-          )}
-        </div>
-      )}
+      {/* ── Inline sync progress strip ──────────────────────────────────── */}
+      {syncStatus &&
+        (syncStatus.phase === 'connecting' ||
+          syncStatus.phase === 'listing' ||
+          syncStatus.phase === 'fetching') && (
+          <div
+            style={{
+              height: 22,
+              borderBottom: '1px solid #2a2a2e',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 12px',
+              gap: 6,
+              flexShrink: 0,
+              backgroundColor: '#0f0f0f'
+            }}
+          >
+            {syncStatus.phase === 'connecting' && (
+              <>
+                <Spin size="small" />
+                <span style={{ fontSize: 11, color: '#a0a0a8' }}>Connecting…</span>
+              </>
+            )}
+            {syncStatus.phase === 'listing' && (
+              <>
+                <Spin size="small" />
+                <span style={{ fontSize: 11, color: '#a0a0a8' }}>Loading mailboxes…</span>
+              </>
+            )}
+            {syncStatus.phase === 'fetching' && !syncStatus.total && (
+              <>
+                <Spin size="small" />
+                <span style={{ fontSize: 11, color: '#a0a0a8' }}>Fetching messages…</span>
+              </>
+            )}
+            {syncStatus.phase === 'fetching' && syncStatus.total && (
+              <Progress
+                percent={Math.round(((syncStatus.current ?? 0) / syncStatus.total) * 100)}
+                size="small"
+                status="active"
+                format={() => `${syncStatus.current ?? 0} of ${syncStatus.total}`}
+                style={{ flex: 1, margin: 0 }}
+              />
+            )}
+          </div>
+        )}
 
-      {/* Error */}
+      {/* ── Error ──────────────────────────────────────────────────────── */}
       {error && (
         <div style={{ padding: '8px 12px' }}>
           <ErrorBanner message={error} onRetry={() => loadMessages(true)} />
         </div>
       )}
 
-      {/* Message list */}
+      {/* ── Message list ────────────────────────────────────────────────── */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          overflowX: 'hidden'
-        }}
+        style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}
       >
-        {loading && messages.length === 0 ? (
+        {(loading || searchLoading) && displayMessages.length === 0 ? (
           <div
             style={{
               display: 'flex',
@@ -239,7 +500,7 @@ export function MailListPane() {
           >
             <Spin size="default" />
           </div>
-        ) : messages.length === 0 ? (
+        ) : displayMessages.length === 0 ? (
           <div
             style={{
               display: 'flex',
@@ -252,36 +513,33 @@ export function MailListPane() {
             <Empty
               image={<InboxOutlined style={{ fontSize: 40, color: '#2a2a2e' }} />}
               description={
-                <span style={{ color: '#a0a0a8', fontSize: 13 }}>No messages</span>
+                <span style={{ color: '#a0a0a8', fontSize: 13 }}>
+                  {isSearching ? 'No results' : 'No messages'}
+                </span>
               }
             />
           </div>
         ) : (
           <>
-            {messages.map((message) => (
+            {displayMessages.map((message) => (
               <MailListItem
                 key={message.id}
                 message={message}
                 isSelected={selectedId === message.id}
-                onSelect={() => handleSelect(message.id)}
+                isBulkSelected={selectedIds.has(message.id)}
+                onSelect={(e) => handleSelect(message.id, e)}
                 onStarToggle={() => handleStarToggle(message.id)}
               />
             ))}
 
-            {/* Load more indicator */}
-            {loading && messages.length > 0 && (
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  padding: 16
-                }}
-              >
+            {/* Load-more indicator (regular list only) */}
+            {!isSearching && loading && messages.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}>
                 <Spin size="small" />
               </div>
             )}
 
-            {messages.length >= total && total > 0 && (
+            {!isSearching && messages.length >= total && total > 0 && (
               <div
                 style={{
                   textAlign: 'center',

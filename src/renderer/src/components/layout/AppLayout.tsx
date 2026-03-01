@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Modal, Progress } from 'antd'
 import { useUiStore } from '../../store/uiStore'
-import { useSearchStore } from '../../store/searchStore'
 import { AccountSidebar } from './AccountSidebar'
 import { MailListPane } from './MailListPane'
 import { MailViewerPane } from './MailViewerPane'
-import { SearchBar } from '../search/SearchBar'
+import { TitleBar } from './TitleBar'
 
 interface PaneDividerProps {
   current: number
@@ -68,10 +67,13 @@ function PaneDivider({ current, onResize, min, max }: PaneDividerProps) {
   )
 }
 
+function focusInlineSearch() {
+  window.dispatchEvent(new CustomEvent('mailtap:focus-search'))
+}
+
 export function AppLayout() {
   const { sidebarVisible, sidebarWidth, setSidebarWidth, mailListWidth, setMailListWidth, toggleSidebar } =
     useUiStore()
-  const { openSearch } = useSearchStore()
 
   const [rebuildVisible, setRebuildVisible] = useState(false)
   const [rebuildCurrent, setRebuildCurrent] = useState(0)
@@ -80,6 +82,14 @@ export function AppLayout() {
   const rebuildProgressUnsubRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        focusInlineSearch()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+
     const unsubToggleSidebar = window.mailtap.on('menu:toggle-sidebar' as string, () => {
       toggleSidebar()
     })
@@ -93,7 +103,7 @@ export function AppLayout() {
     })
 
     const unsubSearch = window.mailtap.on('menu:search' as string, () => {
-      openSearch()
+      focusInlineSearch()
     })
 
     const unsubRebuild = window.mailtap.on('menu:rebuild-index' as string, () => {
@@ -118,13 +128,14 @@ export function AppLayout() {
     })
 
     return () => {
+      document.removeEventListener('keydown', handleKeyDown)
       unsubToggleSidebar()
       unsubAddAccount()
       unsubSyncAll()
       unsubSearch()
       unsubRebuild()
     }
-  }, [toggleSidebar, openSearch])
+  }, [toggleSidebar])
 
   const rebuildPercent =
     rebuildTotal > 0 ? Math.round((rebuildCurrent / rebuildTotal) * 100) : (rebuildDone ? 100 : 0)
@@ -139,31 +150,42 @@ export function AppLayout() {
     <div
       style={{
         display: 'flex',
+        flexDirection: 'column',
         height: '100vh',
         width: '100vw',
         overflow: 'hidden',
         backgroundColor: '#141414'
       }}
     >
-      {sidebarVisible && (
-        <>
-          <div style={{ width: sidebarWidth, flexShrink: 0, height: '100%', overflow: 'hidden' }}>
-            <AccountSidebar />
-          </div>
-          <PaneDivider current={sidebarWidth} onResize={setSidebarWidth} min={160} max={400} />
-        </>
-      )}
+      {/* Title bar with menu */}
+      <TitleBar />
 
-      <div style={{ width: mailListWidth, flexShrink: 0, height: '100%', overflow: 'hidden' }}>
-        <MailListPane />
+      {/* Main 3-pane layout */}
+      <div
+        style={{
+          display: 'flex',
+          flex: 1,
+          overflow: 'hidden'
+        }}
+      >
+        {sidebarVisible && (
+          <>
+            <div style={{ width: sidebarWidth, flexShrink: 0, height: '100%', overflow: 'hidden' }}>
+              <AccountSidebar />
+            </div>
+            <PaneDivider current={sidebarWidth} onResize={setSidebarWidth} min={160} max={400} />
+          </>
+        )}
+
+        <div style={{ width: mailListWidth, flexShrink: 0, height: '100%', overflow: 'hidden' }}>
+          <MailListPane />
+        </div>
+        <PaneDivider current={mailListWidth} onResize={setMailListWidth} min={240} max={560} />
+
+        <div style={{ flex: 1, height: '100%', minWidth: 0, overflow: 'hidden' }}>
+          <MailViewerPane />
+        </div>
       </div>
-      <PaneDivider current={mailListWidth} onResize={setMailListWidth} min={240} max={560} />
-
-      <div style={{ flex: 1, height: '100%', minWidth: 0, overflow: 'hidden' }}>
-        <MailViewerPane />
-      </div>
-
-      <SearchBar />
 
       <Modal
         title="Rebuilding Search Index"

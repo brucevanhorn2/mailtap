@@ -206,6 +206,83 @@ export interface AppSettings {
   showExternalImages: boolean
   syncOnStartup: boolean
   enableLogging: boolean
+  ai?: AiSettings
+}
+
+// ─── AI ──────────────────────────────────────────────────────────────────────
+
+export interface AiSettings {
+  enabled: boolean
+  autoClassify: boolean
+  autoEmbed: boolean
+  spamThreshold: number
+  threatThreshold: number
+  customLabels: string[]
+  llmEnabled: boolean
+  llmModelId: string | null
+}
+
+export interface AiModelInfo {
+  id: string
+  displayName: string
+  tier: number
+  sizeBytes: number
+  modelType: string
+  isDownloaded: boolean
+  localPath: string | null
+}
+
+export interface Subscription {
+  id: string
+  fromEmail: string
+  fromName: string
+  listId: string | null
+  unsubscribeUrl: string | null
+  messageCount: number
+  firstSeenAt: number
+  lastSeenAt: number
+  isMuted: boolean
+}
+
+// ─── AI Analytics ────────────────────────────────────────────────────────────
+
+export interface LabelCount {
+  label: string
+  count: number
+  percentage: number
+}
+
+export interface TimeSeriesPoint {
+  date: string
+  count: number
+  label?: string
+}
+
+export interface SenderStat {
+  email: string
+  name: string
+  count: number
+  avgSpamScore: number
+}
+
+export interface ThreatMessage {
+  id: string
+  subject: string
+  fromEmail: string
+  threatScore: number
+}
+
+export interface ThreatSummary {
+  totalThreats: number
+  highRisk: number
+  mediumRisk: number
+  details: ThreatMessage[]
+}
+
+export interface SentimentCount {
+  sentiment: string
+  count: number
+  percentage: number
 }
 
 // ─── IPC generic ─────────────────────────────────────────────────────────────

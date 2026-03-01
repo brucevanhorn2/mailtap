@@ -1,24 +1,28 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Button, Tooltip } from 'antd'
-import { PlusOutlined, SettingOutlined } from '@ant-design/icons'
+import { PlusOutlined, RobotOutlined } from '@ant-design/icons'
 import type { Mailbox } from '@shared/types'
 import { useAccountStore } from '../../store/accountStore'
 import { useMailStore } from '../../store/mailStore'
+import { useAiStore } from '../../store/aiStore'
 import { AccountItem } from '../sidebar/AccountItem'
 import { FolderItem } from '../sidebar/FolderItem'
 import { AddAccountModal } from '../sidebar/AddAccountModal'
-import { SyncStatusBar } from '../sidebar/SyncStatusBar'
 import { SettingsModal } from '../settings/SettingsModal'
+import { AskMailbox } from '../ai/AskMailbox'
 
 export function AccountSidebar() {
   const accounts = useAccountStore((s) => s.accounts)
   const removeAccount = useAccountStore((s) => s.removeAccount)
   const { activeAccountId, activeMailboxId, setActiveMailbox } = useMailStore()
 
+  const aiEnabled = useAiStore((s) => s.enabled)
+
   const [mailboxesByAccount, setMailboxesByAccount] = useState<Record<string, Mailbox[]>>({})
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [askAiOpen, setAskAiOpen] = useState(false)
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set())
 
   const loadMailboxes = useCallback(async () => {
@@ -77,6 +81,15 @@ export function AccountSidebar() {
     })
   }, [accounts])
 
+  // Listen for settings open event from title bar
+  useEffect(() => {
+    const handler = () => {
+      setSettingsOpen(true)
+    }
+    window.addEventListener('mailtap:settings-open', handler)
+    return () => window.removeEventListener('mailtap:settings-open', handler)
+  }, [])
+
   function toggleExpand(accountId: string) {
     setExpandedAccounts((prev) => {
       const next = new Set(prev)
@@ -120,31 +133,8 @@ export function AccountSidebar() {
         overflow: 'hidden'
       }}
     >
-      {/* App Title */}
-      <div
-        style={{
-          padding: '16px 14px 12px',
-          borderBottom: '1px solid #2a2a2e',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexShrink: 0
-        }}
-      >
-        <span
-          style={{
-            fontSize: 16,
-            fontWeight: 700,
-            color: '#e2e2e2',
-            letterSpacing: '-0.3px'
-          }}
-        >
-          MailTap
-        </span>
-      </div>
-
       {/* Account + Folder List */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '6px 4px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 4px' }}>
         {accounts.map((account) => {
           const isExpanded = expandedAccounts.has(account.id)
           const isAccountSelected = activeAccountId === account.id && activeMailboxId === null
@@ -222,7 +212,7 @@ export function AccountSidebar() {
         )}
       </div>
 
-      {/* Add Account + Settings Buttons */}
+      {/* Add Account + Settings + Ask AI Buttons */}
       <div
         style={{
           padding: '8px 10px',
@@ -243,18 +233,19 @@ export function AccountSidebar() {
             Add Account
           </Button>
         </Tooltip>
-        <Tooltip title="Settings" placement="right">
-          <Button
-            icon={<SettingOutlined />}
-            onClick={() => setSettingsOpen(true)}
-            style={{ borderColor: '#2a2a2e', color: '#a0a0a8', backgroundColor: 'transparent' }}
-            size="small"
-          />
-        </Tooltip>
+        {aiEnabled && (
+          <Tooltip title="Ask AI about your mail" placement="right">
+            <Button
+              icon={<RobotOutlined style={{ color: '#4f9eff' }} />}
+              onClick={() => setAskAiOpen(true)}
+              style={{ borderColor: '#2a2a4e', color: '#4f9eff', backgroundColor: 'transparent' }}
+              size="small"
+            />
+          </Tooltip>
+        )}
       </div>
 
       {/* Sync Status Bar */}
-      <SyncStatusBar />
 
       <AddAccountModal
         open={addModalOpen}
@@ -266,6 +257,7 @@ export function AccountSidebar() {
         }}
       />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <AskMailbox open={askAiOpen} onClose={() => setAskAiOpen(false)} />
     </div>
   )
 }

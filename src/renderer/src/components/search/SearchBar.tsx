@@ -206,7 +206,7 @@ export function SearchBar() {
         acceptSuggestion(suggestions[activeIndex])
       } else if (activeIndex >= suggestions.length && activeIndex < totalItems) {
         const r = results[activeIndex - suggestions.length]
-        if (r) handleResultClick(r.message.id, r.message.accountId)
+        if (r) handleResultClick(r.message.id, r.message.accountId, r.message.mailboxId)
       }
     }
   }
@@ -246,8 +246,8 @@ export function SearchBar() {
   }
 
   // ── Result click ───────────────────────────────────────────────────────────
-  function handleResultClick(messageId: string, accountId: string) {
-    setActiveMailbox(accountId, null)
+  function handleResultClick(messageId: string, accountId: string, mailboxId: string) {
+    setActiveMailbox(accountId, mailboxId)
     setSelectedId(messageId)
     closeSearch()
   }
@@ -417,7 +417,7 @@ export function SearchBar() {
                     key={r.message.id}
                     result={r}
                     isActive={isActive}
-                    onClick={() => handleResultClick(r.message.id, r.message.accountId)}
+                    onClick={() => handleResultClick(r.message.id, r.message.accountId, r.message.mailboxId)}
                     onMouseEnter={() => setActiveIndex(itemIndex)}
                   />
                 )

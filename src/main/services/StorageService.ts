@@ -1,9 +1,10 @@
 import Database from 'better-sqlite3'
 import type { Database as DB } from 'better-sqlite3'
+import * as sqliteVec from 'sqlite-vec'
 import { getDbPath } from '../utils/paths'
 import { logger } from '../utils/logger'
 
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -97,6 +98,14 @@ class StorageService {
 
     this._db = new Database(dbPath)
 
+    // Load sqlite-vec extension for vector search
+    try {
+      sqliteVec.load(this._db)
+      logger.info('sqlite-vec extension loaded')
+    } catch (err) {
+      logger.warn('Failed to load sqlite-vec extension:', err)
+    }
+
     // Enable WAL mode for better concurrent read performance
     this._db.pragma('journal_mode = WAL')
     // Enable foreign key enforcement
@@ -137,6 +146,14 @@ class StorageService {
           )
           logger.info('Migration v1 applied')
         }
+        if (currentVersion < 2) {
+          this.applyMigrationV2()
+          db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(
+            2,
+            Date.now()
+          )
+          logger.info('Migration v2 applied')
+        }
       })
 
       migrate()
@@ -148,6 +165,80 @@ class StorageService {
   private applyMigrationV1(): void {
     const db = this._db!
     db.exec(SCHEMA_SQL)
+  }
+
+  private applyMigrationV2(): void {
+    const db = this._db!
+
+    // Check which AI columns already exist (guards against crash-partial migration)
+    const existingCols = new Set(
+      (db.prepare("PRAGMA table_info(messages)").all() as { name: string }[]).map(r => r.name)
+    )
+
+    const aiColumns: [string, string][] = [
+      ['ai_labels', "TEXT NOT NULL DEFAULT '{}'"],
+      ['ai_spam_score', 'REAL'],
+      ['ai_threat_score', 'REAL'],
+      ['ai_sentiment', 'TEXT'],
+      ['ai_summary', 'TEXT'],
+      ['ai_classified_at', 'INTEGER'],
+      ['ai_embedded_at', 'INTEGER'],
+      ['is_newsletter', 'INTEGER NOT NULL DEFAULT 0'],
+      ['newsletter_unsubscribe_url', 'TEXT']
+    ]
+
+    for (const [col, def] of aiColumns) {
+      if (!existingCols.has(col)) {
+        db.exec(`ALTER TABLE messages ADD COLUMN ${col} ${def}`)
+      }
+    }
+
+    // Indexes and tables use IF NOT EXISTS so they are always safe to re-run
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_messages_ai_spam_score ON messages(ai_spam_score);
+      CREATE INDEX IF NOT EXISTS idx_messages_ai_threat_score ON messages(ai_threat_score);
+      CREATE INDEX IF NOT EXISTS idx_messages_is_newsletter ON messages(is_newsletter);
+      CREATE INDEX IF NOT EXISTS idx_messages_ai_classified_at ON messages(ai_classified_at);
+
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        id            TEXT PRIMARY KEY,
+        from_email    TEXT NOT NULL,
+        from_name     TEXT NOT NULL DEFAULT '',
+        list_id       TEXT,
+        unsubscribe_url TEXT,
+        unsubscribe_post TEXT,
+        message_count INTEGER NOT NULL DEFAULT 0,
+        first_seen_at INTEGER NOT NULL,
+        last_seen_at  INTEGER NOT NULL,
+        is_muted      INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(from_email, list_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS ai_queue (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_id  TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        task_type   TEXT NOT NULL,
+        priority    INTEGER NOT NULL DEFAULT 0,
+        created_at  INTEGER NOT NULL,
+        UNIQUE(message_id, task_type)
+      );
+      CREATE INDEX IF NOT EXISTS idx_ai_queue_priority ON ai_queue(priority DESC, created_at ASC);
+
+      CREATE TABLE IF NOT EXISTS ai_models (
+        id          TEXT PRIMARY KEY,
+        display_name TEXT NOT NULL,
+        tier        INTEGER NOT NULL,
+        size_bytes  INTEGER NOT NULL,
+        downloaded_at INTEGER,
+        local_path  TEXT,
+        model_type  TEXT NOT NULL
+      );
+
+      CREATE VIRTUAL TABLE IF NOT EXISTS message_embeddings USING vec0(
+        message_id TEXT PRIMARY KEY,
+        embedding float[384]
+      );
+    `)
   }
 
   close(): void {

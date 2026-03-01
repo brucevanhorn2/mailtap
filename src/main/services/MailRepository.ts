@@ -338,6 +338,40 @@ class MailRepository {
     return row ? rowToMessage(row) : null
   }
 
+  getThreadMessages(messageId: string): Message[] {
+    const message = this.getMessage(messageId)
+    if (!message) return []
+
+    // Find all messages in the same thread
+    const threadId = message.threadId
+    const subject = message.subject
+
+    let rows: MessageRow[] = []
+
+    if (threadId) {
+      // Query by threadId if available
+      rows = this.db
+        .prepare<[string]>('SELECT * FROM messages WHERE thread_id = ? AND is_deleted = 0 ORDER BY date ASC')
+        .all(threadId) as MessageRow[]
+    } else {
+      // Fallback: group by similar subject (simple heuristic)
+      const normalizedSubject = subject.replace(/^(re:|fwd:)\s*/i, '').trim()
+      // Escape LIKE wildcards in subject to avoid unintended matches (e.g. "50% off")
+      const escapedSubject = normalizedSubject.replace(/[%_\\]/g, '\\$&')
+      rows = this.db
+        .prepare<[string, string]>(
+          `SELECT * FROM messages
+           WHERE account_id = ?
+           AND is_deleted = 0
+           AND REPLACE(REPLACE(LOWER(subject), 're: ', ''), 'fwd: ', '') LIKE ? ESCAPE '\\'
+           ORDER BY date ASC`
+        )
+        .all(message.accountId, `%${escapedSubject}%`) as MessageRow[]
+    }
+
+    return rows.map(rowToMessage)
+  }
+
   listMessages(query: MailListQuery): MailListResult {
     const conditions: string[] = ['is_deleted = 0']
     const params: (string | number)[] = []
