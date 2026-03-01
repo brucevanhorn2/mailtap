@@ -4,7 +4,6 @@ import { PlusOutlined, SettingOutlined, SearchOutlined, RobotOutlined } from '@a
 import type { Mailbox } from '@shared/types'
 import { useAccountStore } from '../../store/accountStore'
 import { useMailStore } from '../../store/mailStore'
-import { useSearchStore } from '../../store/searchStore'
 import { useAiStore } from '../../store/aiStore'
 import { AccountItem } from '../sidebar/AccountItem'
 import { FolderItem } from '../sidebar/FolderItem'
@@ -17,7 +16,7 @@ export function AccountSidebar() {
   const accounts = useAccountStore((s) => s.accounts)
   const removeAccount = useAccountStore((s) => s.removeAccount)
   const { activeAccountId, activeMailboxId, setActiveMailbox } = useMailStore()
-  const { openSearch } = useSearchStore()
+  const focusSearch = () => window.dispatchEvent(new CustomEvent('mailtap:focus-search'))
   const aiEnabled = useAiStore((s) => s.enabled)
 
   const [mailboxesByAccount, setMailboxesByAccount] = useState<Record<string, Mailbox[]>>({})
@@ -241,7 +240,7 @@ export function AccountSidebar() {
         <Tooltip title="Search Mail (Ctrl+K)" placement="right">
           <Button
             icon={<SearchOutlined />}
-            onClick={openSearch}
+            onClick={focusSearch}
             style={{ flex: 1, borderColor: '#2a2a2e', color: '#a0a0a8', backgroundColor: 'transparent' }}
             size="small"
           >

@@ -1,4 +1,5 @@
 import React from 'react'
+import { Checkbox } from 'antd'
 import { PaperClipOutlined, StarFilled, StarOutlined } from '@ant-design/icons'
 import type { Message } from '@shared/types'
 import { formatDate } from '../../utils/dateFormat'
@@ -7,12 +8,24 @@ import { AccountBadge } from '../common/AccountBadge'
 interface MailListItemProps {
   message: Message
   isSelected: boolean
+  isChecked: boolean
+  showCheckboxes: boolean
   onSelect: () => void
+  onCheck: () => void
   onStarToggle: () => void
 }
 
-export function MailListItem({ message, isSelected, onSelect, onStarToggle }: MailListItemProps) {
+export function MailListItem({
+  message,
+  isSelected,
+  isChecked,
+  showCheckboxes,
+  onSelect,
+  onCheck,
+  onStarToggle
+}: MailListItemProps) {
   const [hovered, setHovered] = React.useState(false)
+  const showCheck = showCheckboxes || hovered
 
   return (
     <div
@@ -31,7 +44,7 @@ export function MailListItem({ message, isSelected, onSelect, onStarToggle }: Ma
         position: 'relative'
       }}
     >
-      {/* Unread indicator */}
+      {/* Unread indicator dot */}
       {!message.isRead && (
         <div
           style={{
@@ -48,7 +61,25 @@ export function MailListItem({ message, isSelected, onSelect, onStarToggle }: Ma
         />
       )}
 
-      <AccountBadge email={message.fromEmail} name={message.fromName} size={34} />
+      {/* Avatar / Checkbox slot */}
+      <div
+        style={{ width: 34, height: 34, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        onClick={(e) => {
+          e.stopPropagation()
+          onCheck()
+        }}
+      >
+        {showCheck ? (
+          <Checkbox
+            checked={isChecked}
+            onChange={onCheck}
+            onClick={(e) => e.stopPropagation()}
+            style={{ pointerEvents: 'none' }}
+          />
+        ) : (
+          <AccountBadge email={message.fromEmail} name={message.fromName} size={34} />
+        )}
+      </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* Top row: name + date */}

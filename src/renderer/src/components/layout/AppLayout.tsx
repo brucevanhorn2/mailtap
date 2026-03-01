@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Modal, Progress } from 'antd'
 import { useUiStore } from '../../store/uiStore'
-import { useSearchStore } from '../../store/searchStore'
 import { AccountSidebar } from './AccountSidebar'
 import { MailListPane } from './MailListPane'
 import { MailViewerPane } from './MailViewerPane'
-import { SearchBar } from '../search/SearchBar'
 
 interface PaneDividerProps {
   current: number
@@ -68,10 +66,13 @@ function PaneDivider({ current, onResize, min, max }: PaneDividerProps) {
   )
 }
 
+function focusInlineSearch() {
+  window.dispatchEvent(new CustomEvent('mailtap:focus-search'))
+}
+
 export function AppLayout() {
   const { sidebarVisible, sidebarWidth, setSidebarWidth, mailListWidth, setMailListWidth, toggleSidebar } =
     useUiStore()
-  const { openSearch } = useSearchStore()
 
   const [rebuildVisible, setRebuildVisible] = useState(false)
   const [rebuildCurrent, setRebuildCurrent] = useState(0)
@@ -83,7 +84,7 @@ export function AppLayout() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault()
-        openSearch()
+        focusInlineSearch()
       }
     }
     document.addEventListener('keydown', handleKeyDown)
@@ -101,7 +102,7 @@ export function AppLayout() {
     })
 
     const unsubSearch = window.mailtap.on('menu:search' as string, () => {
-      openSearch()
+      focusInlineSearch()
     })
 
     const unsubRebuild = window.mailtap.on('menu:rebuild-index' as string, () => {
@@ -133,7 +134,7 @@ export function AppLayout() {
       unsubSearch()
       unsubRebuild()
     }
-  }, [toggleSidebar, openSearch])
+  }, [toggleSidebar])
 
   const rebuildPercent =
     rebuildTotal > 0 ? Math.round((rebuildCurrent / rebuildTotal) * 100) : (rebuildDone ? 100 : 0)
@@ -171,8 +172,6 @@ export function AppLayout() {
       <div style={{ flex: 1, height: '100%', minWidth: 0, overflow: 'hidden' }}>
         <MailViewerPane />
       </div>
-
-      <SearchBar />
 
       <Modal
         title="Rebuilding Search Index"
