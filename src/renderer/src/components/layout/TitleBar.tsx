@@ -1,7 +1,8 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Button, Dropdown, Space } from 'antd'
 import { MinusOutlined, BorderOutlined, CloseOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
+import { AiAnalyticsDashboard } from '../ai/AiAnalyticsDashboard'
 
 interface TitleBarProps {
   icon?: React.ReactNode
@@ -9,6 +10,7 @@ interface TitleBarProps {
 
 export function TitleBar({ icon }: TitleBarProps) {
   const isMac = navigator.platform.includes('Mac')
+  const [analyticsVisible, setAnalyticsVisible] = useState(false)
 
   // Window control handlers
   const handleMinimize = () => {
@@ -63,6 +65,12 @@ export function TitleBar({ icon }: TitleBarProps) {
       key: 'toggle-sidebar',
       label: 'Toggle Sidebar',
       onClick: () => window.dispatchEvent(new CustomEvent('mailtap:toggle-sidebar'))
+    },
+    { type: 'divider' },
+    {
+      key: 'analytics',
+      label: 'Email Analytics',
+      onClick: () => setAnalyticsVisible(true)
     },
     { type: 'divider' },
     {
@@ -179,6 +187,9 @@ export function TitleBar({ icon }: TitleBarProps) {
           />
         </Space>
       )}
+
+      {/* Analytics Dashboard Modal */}
+      <AiAnalyticsDashboard visible={analyticsVisible} onClose={() => setAnalyticsVisible(false)} />
     </div>
   )
 }
