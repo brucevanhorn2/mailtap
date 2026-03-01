@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { Modal, Spin, Empty, Row, Col, Card, Table, Tag, Statistic, Progress, message } from 'antd'
-import { AlertOutlined } from '@ant-design/icons'
+import { Modal, Skeleton, Empty, Row, Col, Card, Table, Tag, Statistic, Progress, message, Button, Space } from 'antd'
+import { AlertOutlined, ReloadOutlined } from '@ant-design/icons'
 import type { LabelCount, TimeSeriesPoint, SenderStat, ThreatSummary, SentimentCount } from '@shared/types'
 
 interface AiAnalyticsDashboardProps {
@@ -10,6 +10,7 @@ interface AiAnalyticsDashboardProps {
 
 export function AiAnalyticsDashboard({ visible, onClose }: AiAnalyticsDashboardProps) {
   const [loading, setLoading] = useState(false)
+  const [classifying, setClassifying] = useState(false)
   const [classification, setClassification] = useState<LabelCount[]>([])
   const [volume, setVolume] = useState<TimeSeriesPoint[]>([])
   const [senders, setSenders] = useState<SenderStat[]>([])
@@ -47,16 +48,65 @@ export function AiAnalyticsDashboard({ visible, onClose }: AiAnalyticsDashboardP
     }
   }
 
+  const handleReclassify = async () => {
+    try {
+      setClassifying(true)
+      message.loading({ content: 'Re-classifying all emails...', duration: 0, key: 'reclassify' })
+
+      await window.mailtap.invoke('ai:classify-batch')
+
+      message.success({ content: 'Classification complete! Refreshing analytics...', duration: 2, key: 'reclassify' })
+
+      // Reload analytics after classification completes
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      await loadAnalytics()
+    } catch (err) {
+      message.error('Failed to re-classify emails')
+      console.error(err)
+    } finally {
+      setClassifying(false)
+    }
+  }
+
   return (
     <Modal
       title="Email Analytics"
       open={visible}
       onCancel={onClose}
       width={1200}
-      footer={null}
+      footer={
+        <Space>
+          <Button onClick={onClose}>Close</Button>
+          <Button
+            type="primary"
+            icon={<ReloadOutlined />}
+            onClick={handleReclassify}
+            loading={classifying}
+            disabled={loading}
+          >
+            Re-run Classification
+          </Button>
+        </Space>
+      }
       bodyStyle={{ maxHeight: '80vh', overflowY: 'auto' }}
     >
-      <Spin spinning={loading}>
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <Card title="Security Overview" size="small">
+            <Skeleton paragraph={{ rows: 4 }} />
+          </Card>
+          <Card title="Message Classification" size="small">
+            <Skeleton paragraph={{ rows: 3 }} />
+          </Card>
+          <Card title="Sentiment Distribution" size="small">
+            <Skeleton paragraph={{ rows: 3 }} />
+          </Card>
+          <Card title="Most Active Senders" size="small">
+            <Skeleton paragraph={{ rows: 5 }} />
+          </Card>
+        </div>
+      ) : (
+        <>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           {/* Threat Summary */}
           {threats && (
@@ -269,7 +319,8 @@ export function AiAnalyticsDashboard({ visible, onClose }: AiAnalyticsDashboardP
             </Card>
           )}
         </div>
-      </Spin>
+        </>
+      )}
     </Modal>
   )
 }
