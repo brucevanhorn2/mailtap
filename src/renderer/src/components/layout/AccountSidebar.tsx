@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Button, Tooltip } from 'antd'
-import { PlusOutlined, SettingOutlined, RobotOutlined } from '@ant-design/icons'
+import { PlusOutlined, RobotOutlined } from '@ant-design/icons'
 import type { Mailbox } from '@shared/types'
 import { useAccountStore } from '../../store/accountStore'
 import { useMailStore } from '../../store/mailStore'
@@ -81,6 +81,15 @@ export function AccountSidebar() {
     })
   }, [accounts])
 
+  // Listen for settings open event from title bar
+  useEffect(() => {
+    const handler = () => {
+      setSettingsOpen(true)
+    }
+    window.addEventListener('mailtap:settings-open', handler)
+    return () => window.removeEventListener('mailtap:settings-open', handler)
+  }, [])
+
   function toggleExpand(accountId: string) {
     setExpandedAccounts((prev) => {
       const next = new Set(prev)
@@ -124,31 +133,6 @@ export function AccountSidebar() {
         overflow: 'hidden'
       }}
     >
-      {/* App Title */}
-      <div
-        style={{
-          padding: '6px 14px',
-          borderBottom: '1px solid #2a2a2e',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexShrink: 0,
-          minHeight: 32,
-          lineHeight: 1
-        }}
-      >
-        <span
-          style={{
-            fontSize: 16,
-            fontWeight: 700,
-            color: '#e2e2e2',
-            letterSpacing: '-0.3px'
-          }}
-        >
-          MailTap
-        </span>
-      </div>
-
       {/* Account + Folder List */}
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 4px' }}>
         {accounts.map((account) => {
@@ -259,14 +243,6 @@ export function AccountSidebar() {
             />
           </Tooltip>
         )}
-        <Tooltip title="Settings" placement="right">
-          <Button
-            icon={<SettingOutlined />}
-            onClick={() => setSettingsOpen(true)}
-            style={{ borderColor: '#2a2a2e', color: '#a0a0a8', backgroundColor: 'transparent' }}
-            size="small"
-          />
-        </Tooltip>
       </div>
 
       {/* Sync Status Bar */}
