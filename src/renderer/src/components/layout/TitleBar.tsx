@@ -1,6 +1,6 @@
 import React from 'react'
-import { Button, Dropdown, Space, Tooltip } from 'antd'
-import { MinusOutlined, BorderOutlined, CloseOutlined, SettingOutlined } from '@ant-design/icons'
+import { Button, Dropdown, Space } from 'antd'
+import { MinusOutlined, BorderOutlined, CloseOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 
 interface TitleBarProps {
@@ -21,11 +21,6 @@ export function TitleBar({ icon }: TitleBarProps) {
 
   const handleClose = () => {
     window.mailtap.invoke('window:close')
-  }
-
-  // Settings handler
-  const handleSettings = () => {
-    window.dispatchEvent(new CustomEvent('mailtap:settings-open'))
   }
 
   // File menu
@@ -107,17 +102,22 @@ export function TitleBar({ icon }: TitleBarProps) {
       style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
         height: 40,
         backgroundColor: '#0f0f10',
         borderBottom: '1px solid #2a2a2e',
         paddingLeft: 12,
         paddingRight: 12,
-        gap: 8,
+        gap: 12,
         userSelect: 'none'
       }}
     >
-      {/* Menu items - left side */}
+      {/* Title + Icon - far left */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, color: '#e2e2e2', flexShrink: 0 }}>
+        {icon && <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>{icon}</div>}
+        MailTap
+      </div>
+
+      {/* Menu items - center-left */}
       <div
         style={{
           display: 'flex',
@@ -150,49 +150,35 @@ export function TitleBar({ icon }: TitleBarProps) {
         </Dropdown>
       </div>
 
-      {/* Title - left-center */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, color: '#e2e2e2' }}>
-        {icon && <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>{icon}</div>}
-        MailTap
-      </div>
+      {/* Spacer */}
+      <div style={{ flex: 1 }} />
 
-      {/* Settings + Window controls - right side */}
-      <Space size={4} style={{ marginLeft: 'auto' }}>
-        <Tooltip title="Settings" placement="bottom">
+      {/* Window controls - far right */}
+      {!isMac && (
+        <Space size={0}>
           <Button
             type="text"
             size="small"
-            icon={<SettingOutlined />}
-            onClick={handleSettings}
+            icon={<MinusOutlined />}
+            onClick={handleMinimize}
             style={{ color: '#a0a0a8', width: 32, height: 32, padding: 0 }}
           />
-        </Tooltip>
-        {!isMac && (
-          <>
-            <Button
-              type="text"
-              size="small"
-              icon={<MinusOutlined />}
-              onClick={handleMinimize}
-              style={{ color: '#a0a0a8', width: 32, height: 32, padding: 0 }}
-            />
-            <Button
-              type="text"
-              size="small"
-              icon={<BorderOutlined />}
-              onClick={handleMaximize}
-              style={{ color: '#a0a0a8', width: 32, height: 32, padding: 0 }}
-            />
-            <Button
-              type="text"
-              size="small"
-              icon={<CloseOutlined />}
-              onClick={handleClose}
-              style={{ color: '#a0a0a8', width: 32, height: 32, padding: 0 }}
-            />
-          </>
-        )}
-      </Space>
+          <Button
+            type="text"
+            size="small"
+            icon={<BorderOutlined />}
+            onClick={handleMaximize}
+            style={{ color: '#a0a0a8', width: 32, height: 32, padding: 0 }}
+          />
+          <Button
+            type="text"
+            size="small"
+            icon={<CloseOutlined />}
+            onClick={handleClose}
+            style={{ color: '#a0a0a8', width: 32, height: 32, padding: 0 }}
+          />
+        </Space>
+      )}
     </div>
   )
 }

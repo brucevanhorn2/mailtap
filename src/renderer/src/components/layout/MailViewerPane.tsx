@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { Spin, Button, Tooltip, Divider } from 'antd'
-import { MailOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { MailOutlined, CheckCircleOutlined, ExclamationCircleOutlined, SettingOutlined } from '@ant-design/icons'
 import type { Attachment } from '@shared/types'
 import { useMailStore } from '../../store/mailStore'
 import { useAiStore } from '../../store/aiStore'
@@ -189,6 +189,17 @@ export function MailViewerPane() {
               </>
             )}
           </div>
+
+          {/* Settings button */}
+          <Tooltip title="Settings" placement="bottom">
+            <Button
+              type="text"
+              size="small"
+              icon={<SettingOutlined />}
+              onClick={() => window.dispatchEvent(new CustomEvent('mailtap:settings-open'))}
+              style={{ color: '#a0a0a8', width: 32, height: 32, padding: 0, marginLeft: 4 }}
+            />
+          </Tooltip>
         </div>
       )}
 
