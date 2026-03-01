@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Button, Tooltip } from 'antd'
-import { PlusOutlined, SettingOutlined, SearchOutlined, RobotOutlined } from '@ant-design/icons'
+import { PlusOutlined, SettingOutlined, RobotOutlined } from '@ant-design/icons'
 import type { Mailbox } from '@shared/types'
 import { useAccountStore } from '../../store/accountStore'
 import { useMailStore } from '../../store/mailStore'
@@ -16,7 +16,7 @@ export function AccountSidebar() {
   const accounts = useAccountStore((s) => s.accounts)
   const removeAccount = useAccountStore((s) => s.removeAccount)
   const { activeAccountId, activeMailboxId, setActiveMailbox } = useMailStore()
-  const focusSearch = () => window.dispatchEvent(new CustomEvent('mailtap:focus-search'))
+
   const aiEnabled = useAiStore((s) => s.enabled)
 
   const [mailboxesByAccount, setMailboxesByAccount] = useState<Record<string, Mailbox[]>>({})
@@ -227,39 +227,7 @@ export function AccountSidebar() {
         )}
       </div>
 
-      {/* Search + Ask AI buttons */}
-      <div
-        style={{
-          padding: '6px 10px',
-          borderTop: '1px solid #2a2a2e',
-          flexShrink: 0,
-          display: 'flex',
-          gap: 6
-        }}
-      >
-        <Tooltip title="Search Mail (Ctrl+K)" placement="right">
-          <Button
-            icon={<SearchOutlined />}
-            onClick={focusSearch}
-            style={{ flex: 1, borderColor: '#2a2a2e', color: '#a0a0a8', backgroundColor: 'transparent' }}
-            size="small"
-          >
-            Search
-          </Button>
-        </Tooltip>
-        {aiEnabled && (
-          <Tooltip title="Ask AI about your mail" placement="right">
-            <Button
-              icon={<RobotOutlined style={{ color: '#4f9eff' }} />}
-              onClick={() => setAskAiOpen(true)}
-              style={{ borderColor: '#2a2a4e', color: '#4f9eff', backgroundColor: 'transparent' }}
-              size="small"
-            />
-          </Tooltip>
-        )}
-      </div>
-
-      {/* Add Account + Settings Buttons */}
+      {/* Add Account + Settings + Ask AI Buttons */}
       <div
         style={{
           padding: '8px 10px',
@@ -280,6 +248,16 @@ export function AccountSidebar() {
             Add Account
           </Button>
         </Tooltip>
+        {aiEnabled && (
+          <Tooltip title="Ask AI about your mail" placement="right">
+            <Button
+              icon={<RobotOutlined style={{ color: '#4f9eff' }} />}
+              onClick={() => setAskAiOpen(true)}
+              style={{ borderColor: '#2a2a4e', color: '#4f9eff', backgroundColor: 'transparent' }}
+              size="small"
+            />
+          </Tooltip>
+        )}
         <Tooltip title="Settings" placement="right">
           <Button
             icon={<SettingOutlined />}
