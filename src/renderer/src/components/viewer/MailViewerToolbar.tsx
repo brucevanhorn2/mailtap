@@ -49,10 +49,11 @@ export function MailViewerToolbar({
         display: 'flex',
         alignItems: 'center',
         gap: 4,
-        padding: '8px 12px',
+        padding: '6px 10px',
         backgroundColor: '#0f0f10',
         borderBottom: '1px solid #2a2a2e',
-        flexShrink: 0
+        flexShrink: 0,
+        minHeight: 32
       }}
     >
       {/* Star / Unstar */}

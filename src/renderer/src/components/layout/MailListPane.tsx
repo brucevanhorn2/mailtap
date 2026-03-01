@@ -293,7 +293,10 @@ export function MailListPane() {
         style={{
           padding: '6px 10px',
           borderBottom: '1px solid #2a2a2e',
-          flexShrink: 0
+          flexShrink: 0,
+          minHeight: 32,
+          display: 'flex',
+          alignItems: 'center'
         }}
       >
         <div

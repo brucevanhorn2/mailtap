@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { Spin } from 'antd'
+import { Spin, Button, Tooltip, Divider } from 'antd'
 import { MailOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import type { Attachment } from '@shared/types'
 import { useMailStore } from '../../store/mailStore'
@@ -115,26 +115,56 @@ export function MailViewerPane() {
             display: 'flex',
             alignItems: 'center',
             gap: 4,
-            padding: '8px 12px',
+            padding: '6px 10px',
             backgroundColor: '#0f0f10',
             borderBottom: '1px solid #2a2a2e',
             flexShrink: 0,
-            justifyContent: 'flex-end'
+            minHeight: 32
           }}
         >
+          {/* Reply & Forward buttons (disabled) */}
+          <Tooltip title="Coming in v2">
+            <Button
+              type="text"
+              size="small"
+              disabled
+              style={{ color: '#a0a0a8', opacity: 0.4 }}
+            >
+              Reply
+            </Button>
+          </Tooltip>
+
+          <Tooltip title="Coming in v2">
+            <Button
+              type="text"
+              size="small"
+              disabled
+              style={{ color: '#a0a0a8', opacity: 0.4 }}
+            >
+              Forward
+            </Button>
+          </Tooltip>
+
+          <Divider type="vertical" style={{ borderColor: '#2a2a2e', margin: '0 4px' }} />
+
+          {/* Sync status — pushed to the right */}
           <div
             style={{
+              marginLeft: 'auto',
               display: 'flex',
               alignItems: 'center',
               gap: 6,
               fontSize: 12,
-              color: '#a0a0a8'
+              color: '#a0a0a8',
+              flexShrink: 1,
+              minWidth: 100,
+              overflow: 'hidden'
             }}
           >
             {isAnySyncing ? (
               <>
                 <Spin size="small" />
-                <span style={{ color: '#e2e2e2' }}>
+                <span style={{ color: '#e2e2e2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
                   {syncingStatus?.mailboxName
                     ? `Syncing ${syncingStatus.mailboxName}`
                     : 'Syncing'}
@@ -155,7 +185,7 @@ export function MailViewerPane() {
             ) : (
               <>
                 <CheckCircleOutlined style={{ color: '#52e05c', fontSize: 13 }} />
-                <span>All caught up</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>All caught up</span>
               </>
             )}
           </div>
