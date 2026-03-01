@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Modal, Skeleton, Empty, Row, Col, Card, Table, Tag, Statistic, Progress, message, Button, Space } from 'antd'
 import { AlertOutlined, ReloadOutlined } from '@ant-design/icons'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { LabelCount, TimeSeriesPoint, SenderStat, ThreatSummary, SentimentCount } from '@shared/types'
 
 interface AiAnalyticsDashboardProps {
@@ -276,45 +277,44 @@ export function AiAnalyticsDashboard({ visible, onClose }: AiAnalyticsDashboardP
           {/* Volume Trend */}
           {volume.length > 0 && (
             <Card title="Message Volume (Last 30 Days)" size="small">
-              <div style={{ overflowX: 'auto' }}>
-                <Table
-                  dataSource={volume}
-                  columns={[
-                    {
-                      title: 'Date',
-                      dataIndex: 'date',
-                      key: 'date',
-                      width: 120
-                    },
-                    {
-                      title: 'Messages',
-                      dataIndex: 'count',
-                      key: 'count',
-                      render: (count: number) => {
-                        // Simple bar visualization
-                        const maxCount = Math.max(...volume.map((v) => v.count))
-                        const barWidth = (count / maxCount) * 200
-                        return (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div
-                              style={{
-                                width: barWidth,
-                                height: 24,
-                                backgroundColor: '#1890ff',
-                                borderRadius: 2
-                              }}
-                            />
-                            <span>{count}</span>
-                          </div>
-                        )
-                      }
-                    }
-                  ]}
-                  rowKey="date"
-                  pagination={false}
-                  size="small"
-                  scroll={{ x: true }}
-                />
+              <div style={{ width: '100%', height: 300 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={volume}
+                    margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2e" />
+                    <XAxis
+                      dataKey="date"
+                      stroke="#a0a0a8"
+                      style={{ fontSize: 12 }}
+                      tick={{ fill: '#a0a0a8' }}
+                    />
+                    <YAxis
+                      stroke="#a0a0a8"
+                      style={{ fontSize: 12 }}
+                      tick={{ fill: '#a0a0a8' }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#1c1c1e',
+                        border: '1px solid #2a2a2e',
+                        borderRadius: 4,
+                        color: '#e2e2e2'
+                      }}
+                      labelStyle={{ color: '#e2e2e2' }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="count"
+                      stroke="#4f9eff"
+                      strokeWidth={2}
+                      dot={{ fill: '#4f9eff', r: 4 }}
+                      activeDot={{ r: 6 }}
+                      isAnimationActive={true}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             </Card>
           )}
