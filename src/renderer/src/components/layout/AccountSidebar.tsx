@@ -1,24 +1,30 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Button, Tooltip } from 'antd'
-import { PlusOutlined, SettingOutlined } from '@ant-design/icons'
+import { PlusOutlined, SettingOutlined, SearchOutlined, RobotOutlined } from '@ant-design/icons'
 import type { Mailbox } from '@shared/types'
 import { useAccountStore } from '../../store/accountStore'
 import { useMailStore } from '../../store/mailStore'
+import { useSearchStore } from '../../store/searchStore'
+import { useAiStore } from '../../store/aiStore'
 import { AccountItem } from '../sidebar/AccountItem'
 import { FolderItem } from '../sidebar/FolderItem'
 import { AddAccountModal } from '../sidebar/AddAccountModal'
 import { SyncStatusBar } from '../sidebar/SyncStatusBar'
 import { SettingsModal } from '../settings/SettingsModal'
+import { AskMailbox } from '../ai/AskMailbox'
 
 export function AccountSidebar() {
   const accounts = useAccountStore((s) => s.accounts)
   const removeAccount = useAccountStore((s) => s.removeAccount)
   const { activeAccountId, activeMailboxId, setActiveMailbox } = useMailStore()
+  const { openSearch } = useSearchStore()
+  const aiEnabled = useAiStore((s) => s.enabled)
 
   const [mailboxesByAccount, setMailboxesByAccount] = useState<Record<string, Mailbox[]>>({})
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [askAiOpen, setAskAiOpen] = useState(false)
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set())
 
   const loadMailboxes = useCallback(async () => {
@@ -222,6 +228,38 @@ export function AccountSidebar() {
         )}
       </div>
 
+      {/* Search + Ask AI buttons */}
+      <div
+        style={{
+          padding: '6px 10px',
+          borderTop: '1px solid #2a2a2e',
+          flexShrink: 0,
+          display: 'flex',
+          gap: 6
+        }}
+      >
+        <Tooltip title="Search Mail (Ctrl+K)" placement="right">
+          <Button
+            icon={<SearchOutlined />}
+            onClick={openSearch}
+            style={{ flex: 1, borderColor: '#2a2a2e', color: '#a0a0a8', backgroundColor: 'transparent' }}
+            size="small"
+          >
+            Search
+          </Button>
+        </Tooltip>
+        {aiEnabled && (
+          <Tooltip title="Ask AI about your mail" placement="right">
+            <Button
+              icon={<RobotOutlined style={{ color: '#4f9eff' }} />}
+              onClick={() => setAskAiOpen(true)}
+              style={{ borderColor: '#2a2a4e', color: '#4f9eff', backgroundColor: 'transparent' }}
+              size="small"
+            />
+          </Tooltip>
+        )}
+      </div>
+
       {/* Add Account + Settings Buttons */}
       <div
         style={{
@@ -266,6 +304,7 @@ export function AccountSidebar() {
         }}
       />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <AskMailbox open={askAiOpen} onClose={() => setAskAiOpen(false)} />
     </div>
   )
 }

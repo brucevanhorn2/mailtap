@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { Spin } from 'antd'
 import { MailOutlined } from '@ant-design/icons'
 import type { Attachment } from '@shared/types'
 import { useMailStore } from '../../store/mailStore'
+import { useAiStore } from '../../store/aiStore'
 import { ErrorBanner } from '../common/ErrorBanner'
 import { MailHeader } from '../viewer/MailHeader'
 import { MailBody } from '../viewer/MailBody'
 import { AttachmentList } from '../viewer/AttachmentList'
 import { MailViewerToolbar } from '../viewer/MailViewerToolbar'
+import { MessageSummary } from '../ai/MessageSummary'
 import { useMailViewer } from '../../hooks/useMailViewer'
 import { useMail } from '../../hooks/useMail'
 
@@ -22,10 +24,13 @@ export function MailViewerPane() {
   const { selectedMessage, showExternalImages, hasExternalImages, setHasExternalImages, toggleExternalImages } =
     useMailViewer()
   const { deleteMail, markRead, markStarred } = useMail()
+  const aiEnabled = useAiStore((s) => s.enabled)
 
   const [bodyData, setBodyData] = useState<MailBodyData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showSummary, setShowSummary] = useState(false)
+  const summaryRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!selectedId) {
@@ -59,6 +64,11 @@ export function MailViewerPane() {
     return () => {
       cancelled = true
     }
+  }, [selectedId])
+
+  // Reset summary panel when message changes
+  useEffect(() => {
+    setShowSummary(false)
   }, [selectedId])
 
   if (!selectedId || !selectedMessage) {
@@ -100,6 +110,10 @@ export function MailViewerPane() {
         onMarkRead={(isRead) => markRead(selectedMessage.id, isRead)}
         onStarToggle={() => markStarred(selectedMessage.id, !selectedMessage.isStarred)}
         onDelete={() => deleteMail(selectedMessage.id)}
+        onSummarize={aiEnabled ? () => {
+          setShowSummary(true)
+          setTimeout(() => summaryRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+        } : undefined}
       />
 
       {/* Scrollable content area — block layout so email body can grow taller than viewport */}
@@ -169,6 +183,13 @@ export function MailViewerPane() {
         {/* Attachments */}
         {bodyData && bodyData.attachments.length > 0 && selectedId && (
           <AttachmentList attachments={bodyData.attachments} messageId={selectedId} />
+        )}
+
+        {/* AI Summary */}
+        {aiEnabled && selectedId && showSummary && (
+          <div ref={summaryRef}>
+            <MessageSummary messageId={selectedId} />
+          </div>
         )}
       </div>
     </div>

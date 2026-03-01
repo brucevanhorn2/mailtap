@@ -4,6 +4,7 @@ import {
   Switch,
   Slider,
   Input,
+  Select,
   Button,
   Space,
   Card,
@@ -14,7 +15,7 @@ import {
   Progress,
   Tooltip
 } from 'antd'
-import { DownloadOutlined, InfoCircleOutlined, DeleteOutlined } from '@ant-design/icons'
+import { DownloadOutlined, InfoCircleOutlined, DeleteOutlined, RobotOutlined, CheckCircleOutlined } from '@ant-design/icons'
 import { useAiStore } from '../../store/aiStore'
 import type { AiModelInfo, IpcResult } from '@shared/types'
 
@@ -126,8 +127,39 @@ export function AiSettingsPanel() {
     }
   }
 
+  const [llmInitLoading, setLlmInitLoading] = useState(false)
+  const [llmReady, setLlmReady] = useState(false)
+
+  const handleInitLlm = async () => {
+    if (!settings?.llmModelId) {
+      message.warning('Select an LLM model first')
+      return
+    }
+    const llmModel = models.find((m) => m.id === settings.llmModelId)
+    if (!llmModel?.isDownloaded || !llmModel.localPath) {
+      message.error('Download the LLM model first')
+      return
+    }
+    try {
+      setLlmInitLoading(true)
+      const result = await window.mailtap.invoke('ai:init-llm', llmModel.localPath)
+      if (result.success) {
+        setLlmReady(true)
+        message.success('LLM initialized — Ask AI is ready!')
+      } else {
+        message.error(result.error || 'Failed to initialize LLM')
+      }
+    } catch (err) {
+      message.error('Failed to initialize LLM')
+      console.error(err)
+    } finally {
+      setLlmInitLoading(false)
+    }
+  }
+
   const tier1Models = models.filter((m) => m.tier === 1)
   const tier2Models = models.filter((m) => m.tier === 2)
+  const llmModels = models.filter((m) => m.modelType === 'llm')
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -196,6 +228,17 @@ export function AiSettingsPanel() {
               <Input placeholder="e.g., potential client, legal document, personal" />
             </Form.Item>
 
+            {llmModels.length > 0 && (
+              <Form.Item label="LLM Model (for Ask AI)" name="llmModelId">
+                <Select
+                  placeholder="Select a downloaded LLM model"
+                  options={llmModels
+                    .filter((m) => m.isDownloaded)
+                    .map((m) => ({ label: m.displayName, value: m.id }))}
+                />
+              </Form.Item>
+            )}
+
             <Space>
               <Button type="primary" loading={loading} onClick={() => form.submit()}>
                 Save Settings
@@ -249,6 +292,42 @@ export function AiSettingsPanel() {
           )}
         </div>
       </Card>
+
+      {/* LLM Activation */}
+      {enabled && llmModels.length > 0 && (
+        <Card
+          title={
+            <span>
+              <RobotOutlined style={{ marginRight: 8, color: '#4f9eff' }} />
+              Ask AI (LLM)
+            </span>
+          }
+          size="small"
+        >
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <div style={{ fontSize: 13, color: '#999' }}>
+              Select an LLM model in Settings above, save, then click Initialize to activate Ask AI
+              and message summarization.
+            </div>
+            <Space>
+              <Button
+                type="primary"
+                icon={<RobotOutlined />}
+                loading={llmInitLoading}
+                onClick={handleInitLlm}
+                disabled={!settings?.llmModelId}
+              >
+                Initialize LLM
+              </Button>
+              {llmReady && (
+                <Tag color="green" icon={<CheckCircleOutlined />}>
+                  Ready
+                </Tag>
+              )}
+            </Space>
+          </Space>
+        </Card>
+      )}
     </div>
   )
 }

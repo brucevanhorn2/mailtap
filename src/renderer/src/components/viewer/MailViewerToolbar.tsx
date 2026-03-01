@@ -5,8 +5,10 @@ import {
   StarFilled,
   EyeOutlined,
   EyeInvisibleOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  FileTextOutlined
 } from '@ant-design/icons'
+import { useAiStore } from '../../store/aiStore'
 
 interface MailViewerToolbarProps {
   messageId: string
@@ -15,6 +17,7 @@ interface MailViewerToolbarProps {
   onMarkRead: (isRead: boolean) => void
   onStarToggle: () => void
   onDelete: () => void
+  onSummarize?: () => void
 }
 
 export function MailViewerToolbar({
@@ -22,8 +25,10 @@ export function MailViewerToolbar({
   isStarred,
   onMarkRead,
   onStarToggle,
-  onDelete
+  onDelete,
+  onSummarize
 }: MailViewerToolbarProps) {
+  const aiEnabled = useAiStore((s) => s.enabled)
   return (
     <div
       style={{
@@ -81,6 +86,21 @@ export function MailViewerToolbar({
           danger
         />
       </Tooltip>
+
+      <Divider type="vertical" style={{ borderColor: '#2a2a2e', margin: '0 4px' }} />
+
+      {/* AI Summarize */}
+      {aiEnabled && onSummarize && (
+        <Tooltip title="Summarize with AI">
+          <Button
+            type="text"
+            size="small"
+            icon={<FileTextOutlined style={{ color: '#4f9eff' }} />}
+            onClick={onSummarize}
+            style={{ color: '#a0a0a8' }}
+          />
+        </Tooltip>
+      )}
 
       <Divider type="vertical" style={{ borderColor: '#2a2a2e', margin: '0 4px' }} />
 

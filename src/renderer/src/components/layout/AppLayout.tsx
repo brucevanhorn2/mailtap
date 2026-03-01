@@ -80,6 +80,14 @@ export function AppLayout() {
   const rebuildProgressUnsubRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        openSearch()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+
     const unsubToggleSidebar = window.mailtap.on('menu:toggle-sidebar' as string, () => {
       toggleSidebar()
     })
@@ -118,6 +126,7 @@ export function AppLayout() {
     })
 
     return () => {
+      document.removeEventListener('keydown', handleKeyDown)
       unsubToggleSidebar()
       unsubAddAccount()
       unsubSyncAll()
