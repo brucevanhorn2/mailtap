@@ -1,5 +1,6 @@
 import { storageService } from './StorageService'
 import { logger } from '../utils/logger'
+import type { AccountStats } from '@shared/types'
 
 export interface LabelCount {
   label: string
@@ -9,6 +10,7 @@ export interface LabelCount {
 
 export interface TimeSeriesPoint {
   date: string
+  timestamp: number
   count: number
   label?: string
 }
@@ -25,6 +27,17 @@ export interface ThreatMessage {
   subject: string
   fromEmail: string
   threatScore: number
+  labels: Record<string, number>
+  sentiment: string | null
+}
+
+export interface ClassifiedMessage {
+  id: string
+  subject: string
+  fromEmail: string
+  date: number
+  labels: Record<string, number>
+  sentiment: string | null
 }
 
 export interface ThreatSummary {
@@ -45,17 +58,17 @@ class AiAnalyticsService {
    * Get classification label distribution (pie chart data)
    */
   getClassificationBreakdown(accountId?: string, days?: number): LabelCount[] {
+    const SECURITY_LABELS = new Set(['phishing', 'spam', 'security alert'])
+    const THREAT_THRESHOLD = 0.5
+
     try {
       const db = storageService.db
 
-      // Get all unique labels and their counts
       const params: (string | number)[] = []
       let query = `
-        SELECT
-          json_extract(ai_labels, '$') as labels_json,
-          COUNT(*) as count
+        SELECT ai_labels
         FROM messages
-        WHERE ai_labels != '{}' AND is_deleted = 0
+        WHERE ai_labels IS NOT NULL AND ai_labels != '{}' AND is_deleted = 0
       `
       if (accountId) {
         query += ' AND account_id = ?'
@@ -65,27 +78,54 @@ class AiAnalyticsService {
         query += ' AND received_at > ?'
         params.push(Date.now() - days * 24 * 60 * 60 * 1000)
       }
-      query += ' GROUP BY labels_json'
 
       const rows = db.prepare(query).all(...params) as any[]
 
-      // Flatten label counts from JSON
+      // For each message, pick one effective label:
+      // - If any security label scores > threshold, use the highest security label
+      // - Otherwise, use the highest-scoring non-security label
       const labelCounts = new Map<string, number>()
       let totalMessages = 0
 
       for (const row of rows) {
-        totalMessages += row.count
         try {
-          const labels = JSON.parse(row.labels_json) as Record<string, number>
-          for (const [label, _score] of Object.entries(labels)) {
-            labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1)
+          const labels = JSON.parse(row.ai_labels) as Record<string, number>
+          const entries = Object.entries(labels)
+          if (entries.length === 0) continue
+
+          // Find highest security label above threshold
+          let topSecurityLabel: string | null = null
+          let topSecurityScore = 0
+          for (const [label, score] of entries) {
+            if (SECURITY_LABELS.has(label) && score > THREAT_THRESHOLD && score > topSecurityScore) {
+              topSecurityLabel = label
+              topSecurityScore = score
+            }
           }
+
+          let effectiveLabel: string
+          if (topSecurityLabel) {
+            effectiveLabel = topSecurityLabel
+          } else {
+            // Highest-scoring non-security label
+            let topLabel = entries[0][0]
+            let topScore = entries[0][1]
+            for (const [label, score] of entries) {
+              if (!SECURITY_LABELS.has(label) && score > topScore) {
+                topLabel = label
+                topScore = score
+              }
+            }
+            effectiveLabel = topLabel
+          }
+
+          totalMessages++
+          labelCounts.set(effectiveLabel, (labelCounts.get(effectiveLabel) ?? 0) + 1)
         } catch (err) {
           logger.warn('Failed to parse labels JSON:', err)
         }
       }
 
-      // Convert to array and sort by count
       const result: LabelCount[] = Array.from(labelCounts.entries())
         .map(([label, count]) => ({
           label,
@@ -143,6 +183,7 @@ class AiAnalyticsService {
         const date = new Date(row.timestamp).toLocaleDateString()
         return {
           date,
+          timestamp: row.timestamp as number,
           count: row.count
         }
       })
@@ -155,7 +196,7 @@ class AiAnalyticsService {
   }
 
   /**
-   * Get top senders by message count
+   * Get top senders by message count (excludes sent folder)
    */
   getTopSenders(limit: number = 10, accountId?: string): SenderStat[] {
     try {
@@ -163,14 +204,18 @@ class AiAnalyticsService {
 
       const query = `
         SELECT
-          from_email,
-          from_name,
+          m.from_email,
+          m.from_name,
           COUNT(*) as count,
-          COALESCE(AVG(ai_spam_score), 0) as avg_spam_score
-        FROM messages
-        WHERE is_deleted = 0
-          ${accountId ? 'AND account_id = ?' : ''}
-        GROUP BY from_email
+          COALESCE(AVG(m.ai_spam_score), 0) as avg_spam_score
+        FROM messages m
+        JOIN mailboxes mb ON m.mailbox_id = mb.id
+        WHERE m.is_deleted = 0
+          AND mb.attributes NOT LIKE '%Sent%'
+          AND mb.attributes NOT LIKE '%All%'
+          AND mb.attributes NOT LIKE '%Drafts%'
+          ${accountId ? 'AND m.account_id = ?' : ''}
+        GROUP BY m.from_email
         ORDER BY count DESC
         LIMIT ?
       `
@@ -194,13 +239,16 @@ class AiAnalyticsService {
   /**
    * Get threat summary
    */
-  getThreatSummary(days: number = 30): ThreatSummary {
+  getThreatSummary(days: number = 30, accountId?: string): ThreatSummary {
     try {
       const db = storageService.db
       const cutoffTime = Date.now() - days * 24 * 60 * 60 * 1000
 
+      const accountFilter = accountId ? 'AND account_id = ?' : ''
+      const baseParams: (string | number)[] = accountId ? [cutoffTime, accountId] : [cutoffTime]
+
       // Count threats by severity
-      const countQuery = `
+      const countRow = db.prepare(`
         SELECT
           SUM(CASE WHEN ai_threat_score > 0.7 THEN 1 ELSE 0 END) as high_risk,
           SUM(CASE WHEN ai_threat_score > 0.4 AND ai_threat_score <= 0.7 THEN 1 ELSE 0 END) as medium_risk,
@@ -209,33 +257,37 @@ class AiAnalyticsService {
         WHERE ai_threat_score IS NOT NULL
           AND is_deleted = 0
           AND received_at > ?
-      `
+          ${accountFilter}
+      `).get(...baseParams) as any
 
-      const countRow = db.prepare(countQuery).get(cutoffTime) as any
-
-      // Get details of high-risk messages
-      const detailsQuery = `
-        SELECT id, subject, from_email, ai_threat_score
-        FROM messages
-        WHERE ai_threat_score > 0.5
-          AND is_deleted = 0
-          AND received_at > ?
-        ORDER BY ai_threat_score DESC
-        LIMIT 20
-      `
-
-      const detailRows = db.prepare(detailsQuery).all(cutoffTime) as any[]
+      // No longer fetching detail rows — they were only used by the removed table
+      const detailRows: any[] = []
 
       return {
         totalThreats: countRow.total ?? 0,
         highRisk: countRow.high_risk ?? 0,
         mediumRisk: countRow.medium_risk ?? 0,
-        details: detailRows.map((row) => ({
-          id: row.id,
-          subject: row.subject,
-          fromEmail: row.from_email,
-          threatScore: row.ai_threat_score ?? 0
-        }))
+        details: detailRows.map((row) => {
+          let labels: Record<string, number> = {}
+          let sentiment: string | null = null
+          try {
+            if (row.ai_labels) labels = JSON.parse(row.ai_labels)
+          } catch { /* ignore */ }
+          try {
+            if (row.ai_sentiment) {
+              const parsed = JSON.parse(row.ai_sentiment)
+              sentiment = parsed.label ?? null
+            }
+          } catch { /* ignore */ }
+          return {
+            id: row.id,
+            subject: row.subject,
+            fromEmail: row.from_email,
+            threatScore: row.ai_threat_score ?? 0,
+            labels,
+            sentiment
+          }
+        })
       }
     } catch (err) {
       logger.error('Error getting threat summary:', err)
@@ -245,6 +297,124 @@ class AiAnalyticsService {
         mediumRisk: 0,
         details: []
       }
+    }
+  }
+
+  /**
+   * Get sample messages for a given classification label
+   */
+  getMessagesByLabel(label: string, limit: number = 20): ClassifiedMessage[] {
+    const SECURITY_LABELS = new Set(['phishing', 'spam', 'security alert'])
+    const THREAT_THRESHOLD = 0.5
+
+    try {
+      const db = storageService.db
+
+      // We need to compute the effective label in JS (same logic as getClassificationBreakdown)
+      const rows = db.prepare(`
+        SELECT id, subject, from_email, date, ai_labels, ai_sentiment
+        FROM messages
+        WHERE ai_labels IS NOT NULL AND ai_labels != '{}' AND is_deleted = 0
+        ORDER BY date DESC
+      `).all() as any[]
+
+      const results: ClassifiedMessage[] = []
+
+      for (const row of rows) {
+        if (results.length >= limit) break
+        try {
+          const labels = JSON.parse(row.ai_labels) as Record<string, number>
+          const entries = Object.entries(labels)
+          if (entries.length === 0) continue
+
+          // Determine effective label (same logic as breakdown)
+          let topSecurityLabel: string | null = null
+          let topSecurityScore = 0
+          for (const [l, score] of entries) {
+            if (SECURITY_LABELS.has(l) && score > THREAT_THRESHOLD && score > topSecurityScore) {
+              topSecurityLabel = l
+              topSecurityScore = score
+            }
+          }
+
+          let effectiveLabel: string
+          if (topSecurityLabel) {
+            effectiveLabel = topSecurityLabel
+          } else {
+            let topLabel = entries[0][0]
+            let topScore = entries[0][1]
+            for (const [l, score] of entries) {
+              if (!SECURITY_LABELS.has(l) && score > topScore) {
+                topLabel = l
+                topScore = score
+              }
+            }
+            effectiveLabel = topLabel
+          }
+
+          if (effectiveLabel !== label) continue
+
+          let sentiment: string | null = null
+          try {
+            if (row.ai_sentiment) {
+              const parsed = JSON.parse(row.ai_sentiment)
+              sentiment = parsed.label ?? null
+            }
+          } catch { /* ignore */ }
+
+          results.push({
+            id: row.id,
+            subject: row.subject,
+            fromEmail: row.from_email,
+            date: row.date,
+            labels,
+            sentiment
+          })
+        } catch {
+          // skip rows with bad JSON
+        }
+      }
+
+      return results
+    } catch (err) {
+      logger.error('Error getting messages by label:', err)
+      return []
+    }
+  }
+
+  /**
+   * Get per-account message counts (all time, 30d, 7d, today)
+   */
+  getAccountStats(): AccountStats[] {
+    try {
+      const db = storageService.db
+      const now = Date.now()
+      const ago30d = now - 30 * 24 * 60 * 60 * 1000
+      const ago7d = now - 7 * 24 * 60 * 60 * 1000
+      const todayStart = new Date().setHours(0, 0, 0, 0)
+
+      const rows = db.prepare(`
+        SELECT
+          account_id,
+          COUNT(*) as total_all,
+          SUM(CASE WHEN date >= ? THEN 1 ELSE 0 END) as total_30d,
+          SUM(CASE WHEN date >= ? THEN 1 ELSE 0 END) as total_7d,
+          SUM(CASE WHEN date >= ? THEN 1 ELSE 0 END) as total_today
+        FROM messages
+        WHERE is_deleted = 0
+        GROUP BY account_id
+      `).all(ago30d, ago7d, todayStart) as any[]
+
+      return rows.map((row) => ({
+        accountId: row.account_id,
+        totalAll: row.total_all,
+        total30d: row.total_30d,
+        total7d: row.total_7d,
+        totalToday: row.total_today
+      }))
+    } catch (err) {
+      logger.error('Error getting account stats:', err)
+      return []
     }
   }
 

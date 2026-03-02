@@ -1,11 +1,24 @@
 import React, { useState } from 'react'
-import { Tooltip } from 'antd'
+import { Tooltip, Button, Tag } from 'antd'
+import {
+  StarOutlined,
+  StarFilled,
+  EyeOutlined,
+  EyeInvisibleOutlined,
+  DeleteOutlined,
+  FileTextOutlined
+} from '@ant-design/icons'
 import type { Message, EmailAddress } from '@shared/types'
 import { AccountBadge } from '../common/AccountBadge'
 import { formatDateFull } from '../../utils/dateFormat'
+import { LabelScoreBreakdown } from '../ai/LabelScoreBreakdown'
 
 interface MailHeaderProps {
   message: Message
+  onMarkRead?: (isRead: boolean) => void
+  onStarToggle?: () => void
+  onDelete?: () => void
+  onSummarize?: () => void
 }
 
 const MAX_VISIBLE_RECIPIENTS = 3
@@ -56,7 +69,7 @@ function RecipientList({ addresses, label }: { addresses: EmailAddress[]; label:
   )
 }
 
-export function MailHeader({ message }: MailHeaderProps) {
+export function MailHeader({ message, onMarkRead, onStarToggle, onDelete, onSummarize }: MailHeaderProps) {
   return (
     <div
       style={{
@@ -80,7 +93,7 @@ export function MailHeader({ message }: MailHeaderProps) {
         {message.subject || '(No subject)'}
       </div>
 
-      {/* Sender row: avatar + from info on left, date on right */}
+      {/* Sender row: avatar + from info on left, actions + date on right */}
       <div
         style={{
           display: 'flex',
@@ -112,17 +125,58 @@ export function MailHeader({ message }: MailHeaderProps) {
           </div>
         </div>
 
-        {/* Date on right */}
-        <div
-          style={{
-            fontSize: 12,
-            color: '#a0a0a8',
-            flexShrink: 0,
-            lineHeight: '20px',
-            paddingTop: 2
-          }}
-        >
-          {formatDateFull(message.date)}
+        {/* Action buttons + date */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+          {onStarToggle && (
+            <Tooltip title={message.isStarred ? 'Unstar' : 'Star'}>
+              <Button
+                type="text"
+                size="small"
+                icon={message.isStarred
+                  ? <StarFilled style={{ color: '#f5a623' }} />
+                  : <StarOutlined style={{ color: '#a0a0a8' }} />
+                }
+                onClick={onStarToggle}
+              />
+            </Tooltip>
+          )}
+          {onMarkRead && (
+            <Tooltip title={message.isRead ? 'Mark as unread' : 'Mark as read'}>
+              <Button
+                type="text"
+                size="small"
+                icon={message.isRead
+                  ? <EyeOutlined style={{ color: '#a0a0a8' }} />
+                  : <EyeInvisibleOutlined style={{ color: '#4f9eff' }} />
+                }
+                onClick={() => onMarkRead(!message.isRead)}
+              />
+            </Tooltip>
+          )}
+          {onDelete && (
+            <Tooltip title="Delete">
+              <Button
+                type="text"
+                size="small"
+                danger
+                icon={<DeleteOutlined style={{ color: '#a0a0a8' }} />}
+                onClick={onDelete}
+              />
+            </Tooltip>
+          )}
+          {onSummarize && (
+            <Tooltip title="Summarize with AI">
+              <Button
+                type="text"
+                size="small"
+                icon={<FileTextOutlined style={{ color: '#4f9eff' }} />}
+                onClick={onSummarize}
+              />
+            </Tooltip>
+          )}
+          <span style={{ fontSize: 12, color: '#a0a0a8', marginLeft: 8, whiteSpace: 'nowrap' }}>
+            {formatDateFull(message.date)}
+          </span>
         </div>
       </div>
 
@@ -136,50 +190,27 @@ export function MailHeader({ message }: MailHeaderProps) {
         )}
       </div>
 
-      {/* Reply/Forward actions placeholder */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 8,
-          marginTop: 12,
-          paddingLeft: 42
-        }}
-      >
-        <Tooltip title="Coming in v2">
-          <button
-            disabled
-            style={{
-              padding: '4px 12px',
-              fontSize: 12,
-              color: '#a0a0a8',
-              backgroundColor: 'transparent',
-              border: '1px solid #2a2a2e',
-              borderRadius: 6,
-              cursor: 'not-allowed',
-              opacity: 0.5
-            }}
-          >
-            Reply
-          </button>
-        </Tooltip>
-        <Tooltip title="Coming in v2">
-          <button
-            disabled
-            style={{
-              padding: '4px 12px',
-              fontSize: 12,
-              color: '#a0a0a8',
-              backgroundColor: 'transparent',
-              border: '1px solid #2a2a2e',
-              borderRadius: 6,
-              cursor: 'not-allowed',
-              opacity: 0.5
-            }}
-          >
-            Forward
-          </button>
-        </Tooltip>
-      </div>
+      {/* AI Classification detail */}
+      {message.aiLabels && Object.keys(message.aiLabels).length > 0 && (
+        <div style={{ marginTop: 12, paddingLeft: 42 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            {message.aiThreatScore != null && message.aiThreatScore > 0.3 && (
+              <Tag color={message.aiThreatScore > 0.7 ? 'red' : 'orange'} style={{ fontSize: 11 }}>
+                Threat: {Math.round(message.aiThreatScore * 100)}%
+              </Tag>
+            )}
+            {message.aiSentiment && (
+              <Tag
+                color={message.aiSentiment === 'POSITIVE' ? 'green' : message.aiSentiment === 'NEGATIVE' ? 'red' : 'default'}
+                style={{ fontSize: 11 }}
+              >
+                {message.aiSentiment}
+              </Tag>
+            )}
+          </div>
+          <LabelScoreBreakdown labels={message.aiLabels} sentiment={message.aiSentiment} />
+        </div>
+      )}
     </div>
   )
 }

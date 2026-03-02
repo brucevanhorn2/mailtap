@@ -8,6 +8,13 @@ import { storageService } from './services/StorageService'
 import { imapSyncService } from './services/ImapSyncService'
 import { initLogger, logger } from './utils/logger'
 
+// Linux compatibility: disable GPU acceleration and Chromium sandbox.
+// The GPU process and zygote both fail on many Linux setups (VMs, certain
+// drivers, Wayland-only sessions). Software rendering + no-sandbox fixes it.
+app.disableHardwareAcceleration()
+app.commandLine.appendSwitch('no-sandbox')
+app.commandLine.appendSwitch('disable-dev-shm-usage')
+
 function createWindow(): BrowserWindow {
   const settings = settingsService.load()
   const bounds = settings.windowBounds

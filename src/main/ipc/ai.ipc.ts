@@ -224,11 +224,29 @@ export function registerAiIpc(): void {
     }
   })
 
+  ipcMain.handle('ai:messages-by-label', async (_event, label: string, limit?: number) => {
+    try {
+      return aiAnalyticsService.getMessagesByLabel(label, limit ?? 20)
+    } catch (err) {
+      logger.error('Error getting messages by label:', err)
+      return []
+    }
+  })
+
   ipcMain.handle('ai:analytics-sentiment', async (_event, accountId?: string) => {
     try {
       return aiAnalyticsService.getSentimentBreakdown(accountId)
     } catch (err) {
       logger.error('Error getting sentiment analytics:', err)
+      return []
+    }
+  })
+
+  ipcMain.handle('ai:analytics-account-stats', async () => {
+    try {
+      return aiAnalyticsService.getAccountStats()
+    } catch (err) {
+      logger.error('Error getting account stats:', err)
       return []
     }
   })
@@ -354,6 +372,10 @@ function getDefaultAiSettings(): AiSettings {
       'work'
     ],
     llmEnabled: false,
-    llmModelId: null
+    llmModelId: null,
+    classifierModelId: 'Xenova/mobilebert-uncased-mnli',
+    sentimentModelId: 'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
+    embeddingModelId: 'Xenova/bge-small-en-v1.5',
+    modelDtype: 'q8'
   }
 }

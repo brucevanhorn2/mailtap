@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Message } from '@shared/types'
+import type { Message, MailListFilter } from '@shared/types'
 
 interface MailState {
   messages: Message[]
@@ -9,6 +9,7 @@ interface MailState {
   activeAccountId: string | null
   loading: boolean
   offset: number
+  activeFilters: MailListFilter
 
   setMessages: (messages: Message[], total: number) => void
   appendMessages: (messages: Message[], total: number) => void
@@ -22,6 +23,10 @@ interface MailState {
   prependMessages: (messages: Message[]) => void
   refreshCounter: number
   triggerRefresh: () => void
+  setActiveFilters: (filters: MailListFilter) => void
+  clearFilters: () => void
+  addFilter: (partial: Partial<MailListFilter>) => void
+  removeFilter: (key: keyof MailListFilter) => void
 }
 
 export const useMailStore = create<MailState>((set) => ({
@@ -33,6 +38,7 @@ export const useMailStore = create<MailState>((set) => ({
   loading: false,
   offset: 0,
   refreshCounter: 0,
+  activeFilters: {},
 
   setMessages: (messages, total) => set({ messages, total, offset: messages.length }),
   appendMessages: (messages, total) =>
@@ -71,5 +77,15 @@ export const useMailStore = create<MailState>((set) => ({
       messages: [...messages, ...s.messages],
       total: s.total + messages.length
     })),
-  triggerRefresh: () => set((s) => ({ refreshCounter: s.refreshCounter + 1 }))
+  triggerRefresh: () => set((s) => ({ refreshCounter: s.refreshCounter + 1 })),
+  setActiveFilters: (filters) => set({ activeFilters: filters, messages: [], total: 0, offset: 0 }),
+  clearFilters: () => set({ activeFilters: {}, messages: [], total: 0, offset: 0 }),
+  addFilter: (partial) =>
+    set((s) => ({ activeFilters: { ...s.activeFilters, ...partial }, messages: [], total: 0, offset: 0 })),
+  removeFilter: (key) =>
+    set((s) => {
+      const next = { ...s.activeFilters }
+      delete next[key]
+      return { activeFilters: next, messages: [], total: 0, offset: 0 }
+    })
 }))

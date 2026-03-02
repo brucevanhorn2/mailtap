@@ -1,8 +1,7 @@
-import React, { useState } from 'react'
-import { Button, Dropdown, Space } from 'antd'
+import React from 'react'
+import { Button, Dropdown, Space, message } from 'antd'
 import { MinusOutlined, BorderOutlined, CloseOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
-import { AiAnalyticsDashboard } from '../ai/AiAnalyticsDashboard'
 
 interface TitleBarProps {
   icon?: React.ReactNode
@@ -10,7 +9,6 @@ interface TitleBarProps {
 
 export function TitleBar({ icon }: TitleBarProps) {
   const isMac = navigator.platform.includes('Mac')
-  const [analyticsVisible, setAnalyticsVisible] = useState(false)
 
   // Window control handlers
   const handleMinimize = () => {
@@ -40,6 +38,17 @@ export function TitleBar({ icon }: TitleBarProps) {
     }
   ]
 
+  const handleReclassify = async () => {
+    message.loading({ content: 'Re-classifying all emails…', duration: 0, key: 'reclassify' })
+    try {
+      await window.mailtap.invoke('ai:classify-batch')
+      message.success({ content: 'Classification complete!', duration: 2, key: 'reclassify' })
+      window.dispatchEvent(new CustomEvent('mailtap:analytics-refresh'))
+    } catch {
+      message.error({ content: 'Re-classification failed', duration: 3, key: 'reclassify' })
+    }
+  }
+
   // Sync menu
   const syncMenuItems: MenuProps['items'] = [
     {
@@ -51,6 +60,12 @@ export function TitleBar({ icon }: TitleBarProps) {
       key: 'sync-stop',
       label: 'Stop Sync',
       onClick: () => window.mailtap.invoke('sync:stop')
+    },
+    { type: 'divider' },
+    {
+      key: 'reclassify',
+      label: 'Re-run Classification',
+      onClick: handleReclassify
     }
   ]
 
@@ -70,7 +85,7 @@ export function TitleBar({ icon }: TitleBarProps) {
     {
       key: 'analytics',
       label: 'Email Analytics',
-      onClick: () => setAnalyticsVisible(true)
+      onClick: () => window.dispatchEvent(new CustomEvent('mailtap:show-dashboard'))
     },
     { type: 'divider' },
     {
@@ -188,8 +203,6 @@ export function TitleBar({ icon }: TitleBarProps) {
         </Space>
       )}
 
-      {/* Analytics Dashboard Modal */}
-      <AiAnalyticsDashboard visible={analyticsVisible} onClose={() => setAnalyticsVisible(false)} />
     </div>
   )
 }

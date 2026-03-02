@@ -5,10 +5,22 @@ import { app } from 'electron'
 
 const isDev = process.env.NODE_ENV === 'development'
 
+function serializeMeta(meta: unknown[]): string {
+  if (!meta || !meta.length) return ''
+  const parts = meta.map((m) => {
+    if (m instanceof Error) return m.stack ?? m.message
+    if (typeof m === 'object' && m !== null) {
+      try { return JSON.stringify(m) } catch { return String(m) }
+    }
+    return String(m)
+  })
+  return ' ' + parts.join(' ')
+}
+
 const logFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss.SSS' }),
   winston.format.printf(({ timestamp, level, message, meta }) => {
-    const metaStr = meta && (meta as unknown[]).length ? ' ' + JSON.stringify(meta) : ''
+    const metaStr = serializeMeta(meta as unknown[])
     return `${timestamp} [${level.toUpperCase().padEnd(5)}] ${message}${metaStr}`
   })
 )

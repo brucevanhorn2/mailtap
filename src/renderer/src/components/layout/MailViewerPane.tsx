@@ -1,16 +1,17 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { Spin, Button, Tooltip, Divider } from 'antd'
-import { MailOutlined, CheckCircleOutlined, ExclamationCircleOutlined, SettingOutlined } from '@ant-design/icons'
+import { Spin, Button, Tooltip } from 'antd'
+import { CloseOutlined, HomeOutlined, SettingOutlined } from '@ant-design/icons'
 import type { Attachment } from '@shared/types'
 import { useMailStore } from '../../store/mailStore'
+import { useUiStore } from '../../store/uiStore'
 import { useAiStore } from '../../store/aiStore'
-import { useSyncStore } from '../../store/syncStore'
 import { ErrorBanner } from '../common/ErrorBanner'
+import { SyncStatusIndicator } from '../common/SyncStatusIndicator'
 import { MailHeader } from '../viewer/MailHeader'
 import { MailBody } from '../viewer/MailBody'
 import { AttachmentList } from '../viewer/AttachmentList'
-import { MailViewerToolbar } from '../viewer/MailViewerToolbar'
 import { MessageSummary } from '../ai/MessageSummary'
+import { AnalyticsHome } from '../ai/AnalyticsHome'
 import { useMailViewer } from '../../hooks/useMailViewer'
 import { useMail } from '../../hooks/useMail'
 
@@ -22,11 +23,12 @@ interface MailBodyData {
 
 export function MailViewerPane() {
   const { selectedId } = useMailStore()
+  const setActiveFilters = useMailStore((s) => s.setActiveFilters)
+  const { viewerTab, setViewerTab } = useUiStore()
   const { selectedMessage, showExternalImages, hasExternalImages, setHasExternalImages, toggleExternalImages } =
     useMailViewer()
   const { deleteMail, markRead, markStarred } = useMail()
   const aiEnabled = useAiStore((s) => s.enabled)
-  const statuses = useSyncStore((s) => s.statuses)
 
   const [bodyData, setBodyData] = useState<MailBodyData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -68,20 +70,42 @@ export function MailViewerPane() {
     }
   }, [selectedId])
 
+  // Auto-switch to message tab when a message is selected
+  useEffect(() => {
+    if (selectedId) {
+      setViewerTab('message')
+    }
+  }, [selectedId, setViewerTab])
+
   // Reset summary panel when message changes
   useEffect(() => {
     setShowSummary(false)
   }, [selectedId])
 
-  // Compute sync status
-  const statusList = Object.values(statuses)
-  const syncing = statusList.filter(
-    (s) => s.phase === 'connecting' || s.phase === 'listing' || s.phase === 'fetching'
-  )
-  const errors = statusList.filter((s) => s.phase === 'error')
-  const isAnySyncing = syncing.length > 0
-  const hasErrors = errors.length > 0
-  const syncingStatus = syncing[0]
+  // Listen for mailtap:show-dashboard event from TitleBar menu
+  useEffect(() => {
+    const handler = () => setViewerTab('home')
+    window.addEventListener('mailtap:show-dashboard', handler)
+    return () => window.removeEventListener('mailtap:show-dashboard', handler)
+  }, [setViewerTab])
+
+  const isThreat = (selectedMessage?.aiThreatScore ?? 0) > 0.5
+
+  // Filter callbacks for AnalyticsHome
+  const handleFilterByLabel = (label: string) => {
+    setActiveFilters({ aiLabel: label })
+  }
+  const handleFilterByThreat = (level: 'high' | 'medium') => {
+    setActiveFilters({ threatLevel: level })
+  }
+  const handleFilterBySender = (email: string) => {
+    setActiveFilters({ senderEmail: email })
+  }
+  const handleFilterByDate = (timestamp: number) => {
+    // Filter to that day: timestamp to timestamp + 24h
+    const dayMs = 24 * 60 * 60 * 1000
+    setActiveFilters({ dateFrom: timestamp, dateTo: timestamp + dayMs })
+  }
 
   return (
     <div
@@ -94,117 +118,123 @@ export function MailViewerPane() {
         overflow: 'hidden'
       }}
     >
-      {/* Toolbar — always visible */}
-      {selectedMessage ? (
-        <MailViewerToolbar
-          messageId={selectedMessage.id}
-          isRead={selectedMessage.isRead}
-          isStarred={selectedMessage.isStarred}
-          onMarkRead={(isRead) => markRead(selectedMessage.id, isRead)}
-          onStarToggle={() => markStarred(selectedMessage.id, !selectedMessage.isStarred)}
-          onDelete={() => deleteMail(selectedMessage.id)}
-          onSummarize={aiEnabled ? () => {
-            setShowSummary(true)
-            setTimeout(() => summaryRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
-          } : undefined}
-        />
-      ) : (
-        /* Show status bar when no message selected */
-        <div
+      {/* Tab bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0,
+          padding: '0 10px',
+          backgroundColor: '#0f0f10',
+          borderBottom: '1px solid #2a2a2e',
+          flexShrink: 0,
+          minHeight: 36
+        }}
+      >
+        {/* Home tab */}
+        <button
+          onClick={() => setViewerTab('home')}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 4,
-            padding: '6px 10px',
-            backgroundColor: '#0f0f10',
-            borderBottom: '1px solid #2a2a2e',
-            flexShrink: 0,
-            minHeight: 32
+            gap: 6,
+            padding: '6px 14px',
+            fontSize: 12,
+            fontWeight: viewerTab === 'home' ? 600 : 400,
+            color: viewerTab === 'home' ? '#e2e2e2' : '#a0a0a8',
+            backgroundColor: viewerTab === 'home' ? '#1a1a1e' : 'transparent',
+            border: 'none',
+            borderBottom: viewerTab === 'home' ? '2px solid #4f9eff' : '2px solid transparent',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            transition: 'color 0.15s, background-color 0.15s'
           }}
         >
-          {/* Reply & Forward buttons (disabled) */}
-          <Tooltip title="Coming in v2">
-            <Button
-              type="text"
-              size="small"
-              disabled
-              style={{ color: '#a0a0a8', opacity: 0.4 }}
-            >
-              Reply
-            </Button>
-          </Tooltip>
+          <HomeOutlined style={{ fontSize: 13 }} />
+          Home
+        </button>
 
-          <Tooltip title="Coming in v2">
-            <Button
-              type="text"
-              size="small"
-              disabled
-              style={{ color: '#a0a0a8', opacity: 0.4 }}
-            >
-              Forward
-            </Button>
-          </Tooltip>
-
-          <Divider type="vertical" style={{ borderColor: '#2a2a2e', margin: '0 4px' }} />
-
-          {/* Sync status — pushed to the right */}
+        {/* Message tab — only when a message is selected */}
+        {selectedId && selectedMessage && (
           <div
             style={{
-              marginLeft: 'auto',
               display: 'flex',
               alignItems: 'center',
-              gap: 6,
+              gap: 4,
+              maxWidth: 300,
+              padding: '6px 8px 6px 14px',
               fontSize: 12,
-              color: '#a0a0a8',
-              flexShrink: 1,
-              minWidth: 100,
-              overflow: 'hidden'
+              fontWeight: viewerTab === 'message' ? 600 : 400,
+              color: viewerTab === 'message' ? '#e2e2e2' : '#a0a0a8',
+              backgroundColor: viewerTab === 'message' ? '#1a1a1e' : 'transparent',
+              borderBottom: viewerTab === 'message' ? '2px solid #4f9eff' : '2px solid transparent',
+              cursor: 'pointer',
+              transition: 'color 0.15s, background-color 0.15s'
             }}
           >
-            {isAnySyncing ? (
-              <>
-                <Spin size="small" />
-                <span style={{ color: '#e2e2e2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-                  {syncingStatus?.mailboxName
-                    ? `Syncing ${syncingStatus.mailboxName}`
-                    : 'Syncing'}
-                  {syncingStatus?.current !== undefined &&
-                  syncingStatus?.total !== undefined &&
-                  syncingStatus.total > 0
-                    ? ` (${syncingStatus.current}/${syncingStatus.total})`
-                    : '…'}
-                </span>
-              </>
-            ) : hasErrors ? (
-              <>
-                <ExclamationCircleOutlined style={{ color: '#ff5f5f', fontSize: 13 }} />
-                <span style={{ color: '#ff5f5f', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {errors[0]?.error ?? 'Sync error'}
-                </span>
-              </>
-            ) : (
-              <>
-                <CheckCircleOutlined style={{ color: '#52e05c', fontSize: 13 }} />
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>All caught up</span>
-              </>
-            )}
+            <span
+              onClick={() => setViewerTab('message')}
+              style={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                minWidth: 0,
+                flex: 1
+              }}
+            >
+              {selectedMessage.subject || '(No subject)'}
+            </span>
+            <span
+              onClick={(e) => {
+                e.stopPropagation()
+                setViewerTab('home')
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: 2,
+                borderRadius: 3,
+                color: '#a0a0a8',
+                cursor: 'pointer',
+                flexShrink: 0
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#2a2a2e' }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+            >
+              <CloseOutlined style={{ fontSize: 10 }} />
+            </span>
           </div>
+        )}
 
-          {/* Settings button */}
-          <Tooltip title="Settings" placement="bottom">
-            <Button
-              type="text"
-              size="small"
-              icon={<SettingOutlined />}
-              onClick={() => window.dispatchEvent(new CustomEvent('mailtap:settings-open'))}
-              style={{ color: '#a0a0a8', width: 32, height: 32, padding: 0, marginLeft: 4 }}
-            />
-          </Tooltip>
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
+        {/* Sync status */}
+        <SyncStatusIndicator />
+
+        {/* Settings button */}
+        <Tooltip title="Settings" placement="bottom">
+          <Button
+            type="text"
+            size="small"
+            icon={<SettingOutlined />}
+            onClick={() => window.dispatchEvent(new CustomEvent('mailtap:settings-open'))}
+            style={{ color: '#a0a0a8', width: 32, height: 32, padding: 0, marginLeft: 4 }}
+          />
+        </Tooltip>
+      </div>
+
+      {/* Content area */}
+      {viewerTab === 'home' ? (
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <AnalyticsHome
+            onFilterByLabel={handleFilterByLabel}
+            onFilterByThreat={handleFilterByThreat}
+            onFilterBySender={handleFilterBySender}
+            onFilterByDate={handleFilterByDate}
+          />
         </div>
-      )}
-
-      {/* Content area — shows message or empty state */}
-      {!selectedId || !selectedMessage ? (
+      ) : !selectedId || !selectedMessage ? (
         <div
           style={{
             flex: 1,
@@ -215,84 +245,116 @@ export function MailViewerPane() {
             gap: 16
           }}
         >
-          <MailOutlined style={{ fontSize: 48, color: '#2a2a2e' }} />
           <span style={{ color: '#a0a0a8', fontSize: 14 }}>Select an email to read</span>
         </div>
       ) : (
         <div style={{ flex: 1, overflowY: 'auto' }}>
-        {/* Header */}
-        <MailHeader message={selectedMessage} />
+          {/* Header */}
+          <MailHeader
+            message={selectedMessage}
+            onMarkRead={(isRead) => markRead(selectedMessage.id, isRead)}
+            onStarToggle={() => markStarred(selectedMessage.id, !selectedMessage.isStarred)}
+            onDelete={() => deleteMail(selectedMessage.id)}
+            onSummarize={aiEnabled ? () => {
+              setShowSummary(true)
+              setTimeout(() => summaryRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+            } : undefined}
+          />
 
-        {/* External images banner */}
-        {hasExternalImages && !showExternalImages && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 20px',
-              backgroundColor: '#1c1c1e',
-              borderBottom: '1px solid #2a2a2e',
-              fontSize: 13,
-              color: '#a0a0a8',
-              flexShrink: 0
-            }}
-          >
-            <span>External images are blocked.</span>
-            <button
-              onClick={toggleExternalImages}
+          {/* Threat warning banner */}
+          {isThreat && (
+            <div
               style={{
-                background: 'none',
-                border: 'none',
-                color: '#4f9eff',
-                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 20px',
+                backgroundColor: '#2a1a1a',
+                borderBottom: '1px solid #4a2a2a',
                 fontSize: 13,
-                padding: 0,
-                fontFamily: 'inherit',
-                textDecoration: 'underline'
+                color: '#ff7875',
+                flexShrink: 0
               }}
             >
-              Show images
-            </button>
-          </div>
-        )}
+              This email was flagged as a potential threat. Links and attachments have been disabled.
+            </div>
+          )}
 
-        {/* Body area */}
-        {loading ? (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: 200
-            }}
-          >
-            <Spin size="default" />
-          </div>
-        ) : error ? (
-          <div style={{ padding: '20px' }}>
-            <ErrorBanner message={error} />
-          </div>
-        ) : bodyData ? (
-          <MailBody
-            html={bodyData.html}
-            text={bodyData.text}
-            showExternalImages={showExternalImages}
-            onExternalImagesDetected={setHasExternalImages}
-          />
-        ) : null}
+          {/* External images banner */}
+          {hasExternalImages && !showExternalImages && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 20px',
+                backgroundColor: '#1c1c1e',
+                borderBottom: '1px solid #2a2a2e',
+                fontSize: 13,
+                color: '#a0a0a8',
+                flexShrink: 0
+              }}
+            >
+              <span>External images are blocked.</span>
+              <button
+                onClick={toggleExternalImages}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#4f9eff',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  padding: 0,
+                  fontFamily: 'inherit',
+                  textDecoration: 'underline'
+                }}
+              >
+                Show images
+              </button>
+            </div>
+          )}
 
-        {/* Attachments */}
-        {bodyData && bodyData.attachments.length > 0 && selectedId && (
-          <AttachmentList attachments={bodyData.attachments} messageId={selectedId} />
-        )}
+          {/* Body area */}
+          {loading ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: 200
+              }}
+            >
+              <Spin size="default" />
+            </div>
+          ) : error ? (
+            <div style={{ padding: '20px' }}>
+              <ErrorBanner message={error} />
+            </div>
+          ) : bodyData ? (
+            <MailBody
+              html={bodyData.html}
+              text={bodyData.text}
+              showExternalImages={showExternalImages}
+              onExternalImagesDetected={setHasExternalImages}
+              isThreat={isThreat}
+            />
+          ) : null}
 
-        {/* AI Summary */}
-        {aiEnabled && selectedId && showSummary && (
-          <div ref={summaryRef}>
-            <MessageSummary messageId={selectedId} />
-          </div>
-        )}
+          {/* Attachments */}
+          {bodyData && bodyData.attachments.length > 0 && selectedId && (
+            <AttachmentList
+              attachments={bodyData.attachments}
+              messageId={selectedId}
+              disabled={isThreat}
+            />
+          )}
+
+          {/* AI Summary */}
+          {aiEnabled && selectedId && showSummary && (
+            <div ref={summaryRef}>
+              <MessageSummary messageId={selectedId} />
+            </div>
+          )}
         </div>
       )}
     </div>

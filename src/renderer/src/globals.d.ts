@@ -23,6 +23,7 @@ import type {
   SenderStat,
   ThreatSummary,
   SentimentCount,
+  AccountStats,
   IpcResult
 } from '../../shared/types'
 
@@ -97,9 +98,10 @@ declare global {
       // AI - Analytics
       invoke(channel: 'ai:analytics-classification', accountId?: string, days?: number): Promise<LabelCount[]>
       invoke(channel: 'ai:analytics-volume', accountId?: string, granularity?: 'day' | 'week' | 'month', range?: number): Promise<TimeSeriesPoint[]>
-      invoke(channel: 'ai:analytics-senders', limit: number): Promise<SenderStat[]>
-      invoke(channel: 'ai:analytics-threats', days: number): Promise<ThreatSummary>
+      invoke(channel: 'ai:analytics-senders', limit: number, accountId?: string): Promise<SenderStat[]>
+      invoke(channel: 'ai:analytics-threats', days: number, accountId?: string): Promise<ThreatSummary>
       invoke(channel: 'ai:analytics-sentiment', accountId?: string): Promise<SentimentCount[]>
+      invoke(channel: 'ai:analytics-account-stats'): Promise<AccountStats[]>
 
       // AI - Settings
       invoke(channel: 'ai:get-settings'): Promise<AiSettings>

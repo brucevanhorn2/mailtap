@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react'
-import { Spin, Empty, Progress, Button, Tooltip } from 'antd'
+import { Spin, Empty, Progress, Button, Tooltip, Tag } from 'antd'
 import {
   InboxOutlined,
   SearchOutlined,
@@ -32,7 +32,10 @@ export function MailListPane() {
     markRead,
     markStarred,
     setLoading,
-    refreshCounter
+    refreshCounter,
+    activeFilters,
+    removeFilter,
+    clearFilters
   } = useMailStore()
 
   const syncStatuses = useSyncStore((s) => s.statuses)
@@ -75,7 +78,18 @@ export function MailListPane() {
           accountId: activeAccountId ?? undefined,
           mailboxId: activeMailboxId ?? undefined,
           limit: PAGE_SIZE,
-          offset: reset ? 0 : offset
+          offset: reset ? 0 : offset,
+          aiLabel: activeFilters.aiLabel,
+          senderEmail: activeFilters.senderEmail,
+          dateFrom: activeFilters.dateFrom,
+          dateTo: activeFilters.dateTo,
+          ...(activeFilters.threatLevel === 'high'
+            ? { minThreatScore: 0.7 }
+            : activeFilters.threatLevel === 'medium'
+              ? { minThreatScore: 0.4, maxThreatScore: 0.7 }
+              : activeFilters.threatLevel === 'any'
+                ? { minThreatScore: 0 }
+                : {})
         }
         const result = await window.mailtap.invoke('mail:list', query)
         if (reset) {
@@ -90,7 +104,7 @@ export function MailListPane() {
         loadingMoreRef.current = false
       }
     },
-    [activeAccountId, activeMailboxId, offset, loading, setMessages, appendMessages, setLoading]
+    [activeAccountId, activeMailboxId, offset, loading, setMessages, appendMessages, setLoading, activeFilters]
   )
 
   // Reload when active mailbox changes; clear search + selection
@@ -108,6 +122,12 @@ export function MailListPane() {
     if (refreshCounter > 0) loadMessages(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshCounter])
+
+  // Reload when filters change
+  useEffect(() => {
+    loadMessages(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFilters])
 
   // ── Focus search on Ctrl+K ───────────────────────────────────────────────
   useEffect(() => {
@@ -265,12 +285,15 @@ export function MailListPane() {
   }
 
   // ── Folder title ─────────────────────────────────────────────────────────
+  const hasFilters = Object.keys(activeFilters).length > 0
+
   const folderTitle = useMemo(() => {
     if (isSearching) return `${searchTotal} result${searchTotal !== 1 ? 's' : ''}`
-    if (!activeAccountId && !activeMailboxId) return 'All Mail'
-    if (activeAccountId && !activeMailboxId) return 'Account Inbox'
-    return 'Inbox'
-  }, [isSearching, searchTotal, activeAccountId, activeMailboxId])
+    const base = !activeAccountId && !activeMailboxId ? 'All Mail'
+      : activeAccountId && !activeMailboxId ? 'Account Inbox'
+      : 'Inbox'
+    return hasFilters ? `${base} (filtered)` : base
+  }, [isSearching, searchTotal, activeAccountId, activeMailboxId, hasFilters])
 
   const unreadCount = useMemo(
     () => (isSearching ? 0 : messages.filter((m) => !m.isRead).length),
@@ -427,6 +450,53 @@ export function MailListPane() {
           </>
         )}
       </div>
+
+      {/* ── Active filter chips ─────────────────────────────────────────── */}
+      {hasFilters && (
+        <div
+          style={{
+            padding: '4px 10px',
+            borderBottom: '1px solid #2a2a2e',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            flexWrap: 'wrap',
+            flexShrink: 0
+          }}
+        >
+          {activeFilters.aiLabel && (
+            <Tag closable onClose={() => removeFilter('aiLabel')} color="blue" style={{ fontSize: 11, margin: 0 }}>
+              Label: {activeFilters.aiLabel}
+            </Tag>
+          )}
+          {activeFilters.threatLevel && (
+            <Tag closable onClose={() => removeFilter('threatLevel')} color="red" style={{ fontSize: 11, margin: 0 }}>
+              Threat: {activeFilters.threatLevel}
+            </Tag>
+          )}
+          {activeFilters.senderEmail && (
+            <Tag closable onClose={() => removeFilter('senderEmail')} color="cyan" style={{ fontSize: 11, margin: 0 }}>
+              From: {activeFilters.senderEmail}
+            </Tag>
+          )}
+          {(activeFilters.dateFrom || activeFilters.dateTo) && (
+            <Tag
+              closable
+              onClose={() => { removeFilter('dateFrom'); removeFilter('dateTo') }}
+              color="purple"
+              style={{ fontSize: 11, margin: 0 }}
+            >
+              Date: {activeFilters.dateFrom ? new Date(activeFilters.dateFrom).toLocaleDateString() : '...'}
+            </Tag>
+          )}
+          <span
+            onClick={clearFilters}
+            style={{ fontSize: 11, color: '#4f9eff', cursor: 'pointer', marginLeft: 4 }}
+          >
+            Clear all
+          </span>
+        </div>
+      )}
 
       {/* ── Inline sync progress strip ──────────────────────────────────── */}
       {syncStatus &&

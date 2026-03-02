@@ -25,6 +25,17 @@ type PendingEntry = {
   timeout: NodeJS.Timeout
 }
 
+export interface ClassifierWorkerConfig {
+  classifierModelId: string
+  sentimentModelId: string
+  dtype: string
+}
+
+export interface EmbedderWorkerConfig {
+  embeddingModelId: string
+  dtype: string
+}
+
 class AiWorkerPool {
   private classifierWorker: Worker | null = null
   private embedderWorker: Worker | null = null
@@ -42,6 +53,17 @@ class AiWorkerPool {
 
   private requestIdCounter = 0
 
+  private classifierConfig: ClassifierWorkerConfig | null = null
+  private embedderConfig: EmbedderWorkerConfig | null = null
+
+  setClassifierConfig(config: ClassifierWorkerConfig): void {
+    this.classifierConfig = config
+  }
+
+  setEmbedderConfig(config: EmbedderWorkerConfig): void {
+    this.embedderConfig = config
+  }
+
   async startClassifier(): Promise<void> {
     if (this.classifierWorker) return
     if (!this.classifierStarting) {
@@ -50,7 +72,8 @@ class AiWorkerPool {
         'Classifier',
         (w) => { this.classifierWorker = w },
         () => { this.classifierWorker = null },
-        this.classifierPending
+        this.classifierPending,
+        this.classifierConfig ?? undefined
       ).finally(() => { this.classifierStarting = null })
     }
     return this.classifierStarting
@@ -64,7 +87,8 @@ class AiWorkerPool {
         'Embedder',
         (w) => { this.embedderWorker = w },
         () => { this.embedderWorker = null },
-        this.embedderPending
+        this.embedderPending,
+        this.embedderConfig ?? undefined
       ).finally(() => { this.embedderStarting = null })
     }
     return this.embedderStarting
@@ -132,6 +156,22 @@ class AiWorkerPool {
     logger.info('AI worker pool shut down')
   }
 
+  async restartClassifier(): Promise<void> {
+    if (this.classifierWorker) {
+      await this.classifierWorker.terminate()
+      this.classifierWorker = null
+    }
+    await this.startClassifier()
+  }
+
+  async restartEmbedder(): Promise<void> {
+    if (this.embedderWorker) {
+      await this.embedderWorker.terminate()
+      this.embedderWorker = null
+    }
+    await this.startEmbedder()
+  }
+
   // ─── Private helpers ────────────────────────────────────────────────────────
 
   private async _spawnWorker(
@@ -139,10 +179,11 @@ class AiWorkerPool {
     label: string,
     onReady: (w: Worker) => void,
     onGone: () => void,
-    pending: Map<string, PendingEntry>
+    pending: Map<string, PendingEntry>,
+    workerData?: object
   ): Promise<void> {
     try {
-      const worker = new Worker(workerPath)
+      const worker = new Worker(workerPath, workerData ? { workerData } : undefined)
 
       worker.on('message', (response: WorkerResponse) => {
         this.handleResponse(pending, response)

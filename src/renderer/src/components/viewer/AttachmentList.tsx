@@ -5,6 +5,7 @@ import type { Attachment } from '@shared/types'
 interface AttachmentListProps {
   attachments: Attachment[]
   messageId: string
+  disabled?: boolean
 }
 
 function formatFileSize(bytes: number): string {
@@ -17,10 +18,11 @@ function formatFileSize(bytes: number): string {
   return `${bytes} B`
 }
 
-export function AttachmentList({ attachments, messageId }: AttachmentListProps) {
+export function AttachmentList({ attachments, messageId, disabled = false }: AttachmentListProps) {
   if (attachments.length === 0) return null
 
   async function handleDownload(attachment: Attachment) {
+    if (disabled) return
     await window.mailtap.invoke('mail:save-attachment', messageId, attachment.id, '')
   }
 
@@ -58,7 +60,10 @@ export function AttachmentList({ attachments, messageId }: AttachmentListProps) 
           <button
             key={attachment.id}
             onClick={() => handleDownload(attachment)}
-            title={`Download ${attachment.filename}`}
+            title={disabled
+              ? 'Downloads disabled — this email was flagged as a potential threat'
+              : `Download ${attachment.filename}`
+            }
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -67,19 +72,22 @@ export function AttachmentList({ attachments, messageId }: AttachmentListProps) 
               backgroundColor: '#1c1c1e',
               border: '1px solid #2a2a2e',
               borderRadius: 8,
-              cursor: 'pointer',
+              cursor: disabled ? 'not-allowed' : 'pointer',
               flexShrink: 0,
               color: '#e2e2e2',
               fontSize: 13,
               fontFamily: 'inherit',
+              opacity: disabled ? 0.4 : 1,
               transition: 'background-color 0.15s ease, border-color 0.15s ease'
             }}
             onMouseEnter={(e) => {
+              if (disabled) return
               const el = e.currentTarget
               el.style.backgroundColor = '#252528'
               el.style.borderColor = '#4f9eff'
             }}
             onMouseLeave={(e) => {
+              if (disabled) return
               const el = e.currentTarget
               el.style.backgroundColor = '#1c1c1e'
               el.style.borderColor = '#2a2a2e'

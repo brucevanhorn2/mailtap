@@ -31,6 +31,10 @@ interface MessageRow {
   has_attachments: number
   eml_path: string
   flags: string
+  ai_labels: string | null
+  ai_spam_score: number | null
+  ai_threat_score: number | null
+  ai_sentiment: string | null
 }
 
 interface SearchRow extends MessageRow {
@@ -38,6 +42,10 @@ interface SearchRow extends MessageRow {
 }
 
 function rowToMessage(row: MessageRow): Message {
+  let aiLabels: Record<string, number> | null = null
+  try { if (row.ai_labels) aiLabels = JSON.parse(row.ai_labels) } catch { /* ignore */ }
+  let aiSentiment: string | null = null
+  try { if (row.ai_sentiment) aiSentiment = JSON.parse(row.ai_sentiment)?.label ?? null } catch { /* ignore */ }
   return {
     id: row.id,
     accountId: row.account_id,
@@ -58,7 +66,11 @@ function rowToMessage(row: MessageRow): Message {
     isDeleted: row.is_deleted === 1,
     hasAttachments: row.has_attachments === 1,
     emlPath: row.eml_path,
-    flags: JSON.parse(row.flags)
+    flags: JSON.parse(row.flags),
+    aiLabels,
+    aiSpamScore: row.ai_spam_score ?? null,
+    aiThreatScore: row.ai_threat_score ?? null,
+    aiSentiment
   }
 }
 

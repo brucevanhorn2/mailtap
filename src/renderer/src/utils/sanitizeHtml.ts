@@ -6,7 +6,7 @@
  */
 export function sanitizeEmailHtml(
   rawHtml: string,
-  options: { showExternalImages?: boolean } = {}
+  options: { showExternalImages?: boolean; disableLinks?: boolean } = {}
 ): { html: string; hasExternalImages: boolean } {
   const doc = new DOMParser().parseFromString(rawHtml, 'text/html')
 
@@ -41,6 +41,16 @@ export function sanitizeEmailHtml(
       }
     }
   })
+
+  // Disable links for threat emails
+  if (options.disableLinks) {
+    const links = doc.querySelectorAll('a')
+    links.forEach((a) => {
+      a.removeAttribute('href')
+      a.setAttribute('style', 'color: #999; text-decoration: line-through; cursor: not-allowed')
+      a.setAttribute('title', 'Link disabled — this email was flagged as a potential threat')
+    })
+  }
 
   return { html: doc.body.innerHTML, hasExternalImages }
 }

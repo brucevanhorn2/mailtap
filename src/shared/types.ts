@@ -92,6 +92,10 @@ export interface Message {
   hasAttachments: boolean
   emlPath: string
   flags: string[]
+  aiLabels: Record<string, number> | null
+  aiSpamScore: number | null
+  aiThreatScore: number | null
+  aiSentiment: string | null
 }
 
 export interface Attachment {
@@ -106,6 +110,14 @@ export interface Attachment {
 
 // ─── Mail queries ─────────────────────────────────────────────────────────────
 
+export interface MailListFilter {
+  aiLabel?: string
+  threatLevel?: 'high' | 'medium' | 'any'
+  senderEmail?: string
+  dateFrom?: number
+  dateTo?: number
+}
+
 export interface MailListQuery {
   accountId?: string
   mailboxId?: string
@@ -113,6 +125,12 @@ export interface MailListQuery {
   offset: number
   onlyUnread?: boolean
   onlyStarred?: boolean
+  aiLabel?: string
+  minThreatScore?: number
+  maxThreatScore?: number
+  senderEmail?: string
+  dateFrom?: number
+  dateTo?: number
 }
 
 export interface MailListResult {
@@ -220,6 +238,10 @@ export interface AiSettings {
   customLabels: string[]
   llmEnabled: boolean
   llmModelId: string | null
+  classifierModelId: string
+  sentimentModelId: string
+  embeddingModelId: string
+  modelDtype: string
 }
 
 export interface AiModelInfo {
@@ -254,6 +276,7 @@ export interface LabelCount {
 
 export interface TimeSeriesPoint {
   date: string
+  timestamp: number
   count: number
   label?: string
 }
@@ -270,6 +293,17 @@ export interface ThreatMessage {
   subject: string
   fromEmail: string
   threatScore: number
+  labels: Record<string, number>
+  sentiment: string | null
+}
+
+export interface ClassifiedMessage {
+  id: string
+  subject: string
+  fromEmail: string
+  date: number
+  labels: Record<string, number>
+  sentiment: string | null
 }
 
 export interface ThreatSummary {
@@ -283,6 +317,14 @@ export interface SentimentCount {
   sentiment: string
   count: number
   percentage: number
+}
+
+export interface AccountStats {
+  accountId: string
+  totalAll: number
+  total30d: number
+  total7d: number
+  totalToday: number
 }
 
 // ─── IPC generic ─────────────────────────────────────────────────────────────

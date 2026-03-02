@@ -3,6 +3,7 @@ import { mailRepository } from './MailRepository'
 import { emlStore } from './EmlStore'
 import { storageService } from './StorageService'
 import { subscriptionService } from './SubscriptionService'
+import { settingsService } from './SettingsService'
 import { simpleParser } from 'mailparser'
 import { logger } from '../utils/logger'
 
@@ -18,6 +19,20 @@ interface ProgressCallback {
 
 class ClassificationService {
   private spamTrainingData: Array<{ text: string; isSpam: boolean }> = []
+  private configApplied = false
+
+  private applyModelConfig(): void {
+    if (this.configApplied) return
+    const ai = settingsService.load().ai
+    if (ai) {
+      aiWorkerPool.setClassifierConfig({
+        classifierModelId: ai.classifierModelId,
+        sentimentModelId: ai.sentimentModelId,
+        dtype: ai.modelDtype
+      })
+    }
+    this.configApplied = true
+  }
 
   /**
    * Classify a single message
@@ -27,6 +42,7 @@ class ClassificationService {
     labels: string[]
   ): Promise<void> {
     try {
+      this.applyModelConfig()
       const message = mailRepository.getMessage(messageId)
       if (!message) {
         logger.warn(`Message not found: ${messageId}`)

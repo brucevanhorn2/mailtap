@@ -1,4 +1,9 @@
-import { parentPort } from 'worker_threads'
+import { parentPort, workerData } from 'worker_threads'
+
+type DType = 'q4' | 'q8' | 'fp16' | 'fp32' | 'auto' | 'int8' | 'uint8' | 'bnb4' | 'q4f16'
+
+const embeddingModelId: string = workerData?.embeddingModelId ?? 'Xenova/bge-small-en-v1.5'
+const dtype = (workerData?.dtype ?? 'q8') as DType
 
 interface WorkerRequest {
   requestId: string
@@ -20,8 +25,8 @@ async function loadEmbedder() {
 
   try {
     const { pipeline } = await import('@huggingface/transformers')
-    embedding = await pipeline('feature-extraction', 'Xenova/bge-small-en-v1.5')
-    console.log('[embedder-worker] BGE-small model loaded')
+    embedding = await pipeline('feature-extraction', embeddingModelId, { dtype })
+    console.log(`[embedder-worker] Embedding model loaded: ${embeddingModelId} (dtype: ${dtype})`)
   } catch (err) {
     console.error('[embedder-worker] Failed to load model:', err)
     throw err

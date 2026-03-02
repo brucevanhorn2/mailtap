@@ -47,6 +47,10 @@ interface MessageRow {
   has_attachments: number
   eml_path: string
   flags: string
+  ai_labels: string | null
+  ai_spam_score: number | null
+  ai_threat_score: number | null
+  ai_sentiment: string | null
 }
 
 interface AttachmentRow {
@@ -78,6 +82,10 @@ function rowToMailbox(row: MailboxRow): Mailbox {
 }
 
 function rowToMessage(row: MessageRow): Message {
+  let aiLabels: Record<string, number> | null = null
+  try { if (row.ai_labels) aiLabels = JSON.parse(row.ai_labels) } catch { /* ignore */ }
+  let aiSentiment: string | null = null
+  try { if (row.ai_sentiment) aiSentiment = JSON.parse(row.ai_sentiment)?.label ?? null } catch { /* ignore */ }
   return {
     id: row.id,
     accountId: row.account_id,
@@ -98,7 +106,11 @@ function rowToMessage(row: MessageRow): Message {
     isDeleted: row.is_deleted === 1,
     hasAttachments: row.has_attachments === 1,
     emlPath: row.eml_path,
-    flags: JSON.parse(row.flags) as string[]
+    flags: JSON.parse(row.flags) as string[],
+    aiLabels,
+    aiSpamScore: row.ai_spam_score ?? null,
+    aiThreatScore: row.ai_threat_score ?? null,
+    aiSentiment
   }
 }
 
@@ -392,6 +404,31 @@ class MailRepository {
 
     if (query.onlyStarred) {
       conditions.push('is_starred = 1')
+    }
+
+    if (query.aiLabel) {
+      conditions.push("json_extract(ai_labels, '$.' || ?) IS NOT NULL")
+      params.push(query.aiLabel)
+    }
+    if (query.minThreatScore !== undefined) {
+      conditions.push('ai_threat_score >= ?')
+      params.push(query.minThreatScore)
+    }
+    if (query.maxThreatScore !== undefined) {
+      conditions.push('ai_threat_score <= ?')
+      params.push(query.maxThreatScore)
+    }
+    if (query.senderEmail) {
+      conditions.push('from_email = ?')
+      params.push(query.senderEmail)
+    }
+    if (query.dateFrom) {
+      conditions.push('date >= ?')
+      params.push(query.dateFrom)
+    }
+    if (query.dateTo) {
+      conditions.push('date <= ?')
+      params.push(query.dateTo)
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''

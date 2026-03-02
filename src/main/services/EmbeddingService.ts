@@ -3,6 +3,7 @@ import { storageService } from './StorageService'
 import { mailRepository } from './MailRepository'
 import { emlStore } from './EmlStore'
 import { searchService } from './SearchService'
+import { settingsService } from './SettingsService'
 import { simpleParser } from 'mailparser'
 import { logger } from '../utils/logger'
 import type { SearchResult } from '@shared/types'
@@ -17,11 +18,26 @@ export interface HybridSearchResult extends SearchResult {
 }
 
 class EmbeddingService {
+  private configApplied = false
+
+  private applyModelConfig(): void {
+    if (this.configApplied) return
+    const ai = settingsService.load().ai
+    if (ai) {
+      aiWorkerPool.setEmbedderConfig({
+        embeddingModelId: ai.embeddingModelId,
+        dtype: ai.modelDtype
+      })
+    }
+    this.configApplied = true
+  }
+
   /**
    * Generate and store embedding for a single message
    */
   async embedMessage(messageId: string): Promise<void> {
     try {
+      this.applyModelConfig()
       const message = mailRepository.getMessage(messageId)
       if (!message) {
         logger.warn(`Message not found for embedding: ${messageId}`)
@@ -95,6 +111,7 @@ class EmbeddingService {
    */
   async searchSimilar(query: string, limit: number = 20): Promise<VectorSearchResult[]> {
     try {
+      this.applyModelConfig()
       const db = storageService.db
 
       // Generate embedding for query

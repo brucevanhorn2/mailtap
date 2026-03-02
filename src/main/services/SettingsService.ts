@@ -20,7 +20,8 @@ export class SettingsService {
       sidebarWidth: store.get('sidebarWidth', 240) as number,
       showExternalImages: store.get('showExternalImages', false) as boolean,
       syncOnStartup: store.get('syncOnStartup', true) as boolean,
-      enableLogging: store.get('enableLogging', false) as boolean
+      enableLogging: store.get('enableLogging', false) as boolean,
+      ai: store.get('ai') as AppSettings['ai']
     }
   }
 
@@ -31,6 +32,9 @@ export class SettingsService {
     store.set('enableLogging', settings.enableLogging)
     if (settings.windowBounds) {
       store.set('windowBounds', settings.windowBounds)
+    }
+    if (settings.ai !== undefined) {
+      store.set('ai', settings.ai)
     }
   }
 

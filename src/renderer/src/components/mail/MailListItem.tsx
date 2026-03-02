@@ -1,5 +1,6 @@
 import React from 'react'
-import { PaperClipOutlined, StarFilled, StarOutlined } from '@ant-design/icons'
+import { Tooltip } from 'antd'
+import { PaperClipOutlined, StarFilled, StarOutlined, WarningOutlined, SmileOutlined, FrownOutlined, MehOutlined } from '@ant-design/icons'
 import type { Message } from '@shared/types'
 import { formatDate } from '../../utils/dateFormat'
 import { AccountBadge } from '../common/AccountBadge'
@@ -103,6 +104,48 @@ export function MailListItem({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {message.hasAttachments && (
             <PaperClipOutlined style={{ fontSize: 11, color: '#a0a0a8' }} />
+          )}
+          {(message.aiThreatScore ?? 0) > 0.5 && (
+            <Tooltip title={`Threat: ${Math.round((message.aiThreatScore ?? 0) * 100)}%`}>
+              <WarningOutlined style={{ fontSize: 11, color: '#ff4d4f' }} />
+            </Tooltip>
+          )}
+          {message.aiLabels && (() => {
+            const top = Object.entries(message.aiLabels).sort((a, b) => b[1] - a[1])[0]
+            if (!top) return null
+            const THREAT_LABELS = new Set(['spam', 'phishing', 'security alert'])
+            const color = THREAT_LABELS.has(top[0]) ? '#ff4d4f' : '#4f9eff'
+            return (
+              <span style={{
+                fontSize: 10,
+                padding: '0 4px',
+                borderRadius: 3,
+                backgroundColor: `${color}22`,
+                color,
+                lineHeight: '16px',
+                whiteSpace: 'nowrap',
+                maxWidth: 80,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {top[0]}
+              </span>
+            )
+          })()}
+          {message.aiSentiment && (
+            message.aiSentiment === 'POSITIVE' ? (
+              <Tooltip title="Sentiment: Positive">
+                <SmileOutlined style={{ fontSize: 12, color: '#52c41a', flexShrink: 0 }} />
+              </Tooltip>
+            ) : message.aiSentiment === 'NEGATIVE' ? (
+              <Tooltip title="Sentiment: Negative">
+                <FrownOutlined style={{ fontSize: 12, color: '#ff4d4f', flexShrink: 0 }} />
+              </Tooltip>
+            ) : (
+              <Tooltip title="Sentiment: Neutral">
+                <MehOutlined style={{ fontSize: 12, color: '#a0a0a8', flexShrink: 0 }} />
+              </Tooltip>
+            )
           )}
           <span
             onClick={(e) => {

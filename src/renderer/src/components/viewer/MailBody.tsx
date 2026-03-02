@@ -6,17 +6,19 @@ interface MailBodyProps {
   text: string
   showExternalImages?: boolean
   onExternalImagesDetected?: (hasImages: boolean) => void
+  isThreat?: boolean
 }
 
 export function MailBody({
   html,
   text,
   showExternalImages = false,
-  onExternalImagesDetected
+  onExternalImagesDetected,
+  isThreat = false
 }: MailBodyProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const { html: sanitizedHtml, hasExternalImages } = html
-    ? sanitizeEmailHtml(html, { showExternalImages })
+    ? sanitizeEmailHtml(html, { showExternalImages, disableLinks: isThreat })
     : { html: '', hasExternalImages: false }
 
   useEffect(() => {

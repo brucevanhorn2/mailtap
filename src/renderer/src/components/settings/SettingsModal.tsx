@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Modal, Form, Switch, Button, Space } from 'antd'
+import { Modal, Form, Switch, Button, Space, Collapse, Input, Select, Typography } from 'antd'
 import { FolderOpenOutlined } from '@ant-design/icons'
-import type { AppSettings } from '@shared/types'
+import type { AppSettings, AiSettings } from '@shared/types'
+
+const { Text } = Typography
 
 interface Props {
   open: boolean
@@ -33,6 +35,27 @@ export function SettingsModal({ open, onClose }: Props) {
     setSettings((prev) => (prev ? { ...prev, [key]: value } : prev))
   }
 
+  function setAi<K extends keyof AiSettings>(key: K, value: AiSettings[K]) {
+    setSettings((prev) => {
+      if (!prev) return prev
+      const ai = prev.ai ?? {
+        enabled: false,
+        autoClassify: true,
+        autoEmbed: true,
+        spamThreshold: 0.7,
+        threatThreshold: 0.5,
+        customLabels: [],
+        llmEnabled: false,
+        llmModelId: null,
+        classifierModelId: 'Xenova/mobilebert-uncased-mnli',
+        sentimentModelId: 'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
+        embeddingModelId: 'Xenova/bge-small-en-v1.5',
+        modelDtype: 'q8'
+      }
+      return { ...prev, ai: { ...ai, [key]: value } }
+    })
+  }
+
   return (
     <Modal
       title="Settings"
@@ -46,7 +69,7 @@ export function SettingsModal({ open, onClose }: Props) {
           </Button>
         </Space>
       }
-      width={420}
+      width={520}
     >
       {settings && (
         <Form layout="vertical" style={{ marginTop: 8 }}>
@@ -81,6 +104,54 @@ export function SettingsModal({ open, onClose }: Props) {
               )}
             </Space>
           </Form.Item>
+
+          <Collapse
+            ghost
+            items={[{
+              key: 'ai-models',
+              label: 'AI Models',
+              children: (
+                <>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 12 }}>
+                    HuggingFace model ID or local path. Changes take effect after restarting the app.
+                  </Text>
+                  <Form.Item label="Classifier Model">
+                    <Input
+                      value={settings.ai?.classifierModelId ?? 'Xenova/mobilebert-uncased-mnli'}
+                      onChange={(e) => setAi('classifierModelId', e.target.value)}
+                      placeholder="Xenova/mobilebert-uncased-mnli"
+                    />
+                  </Form.Item>
+                  <Form.Item label="Sentiment Model">
+                    <Input
+                      value={settings.ai?.sentimentModelId ?? 'Xenova/distilbert-base-uncased-finetuned-sst-2-english'}
+                      onChange={(e) => setAi('sentimentModelId', e.target.value)}
+                      placeholder="Xenova/distilbert-base-uncased-finetuned-sst-2-english"
+                    />
+                  </Form.Item>
+                  <Form.Item label="Embedding Model">
+                    <Input
+                      value={settings.ai?.embeddingModelId ?? 'Xenova/bge-small-en-v1.5'}
+                      onChange={(e) => setAi('embeddingModelId', e.target.value)}
+                      placeholder="Xenova/bge-small-en-v1.5"
+                    />
+                  </Form.Item>
+                  <Form.Item label="Quantization">
+                    <Select
+                      value={settings.ai?.modelDtype ?? 'q8'}
+                      onChange={(v) => setAi('modelDtype', v)}
+                      options={[
+                        { label: 'q4 (smallest, fastest)', value: 'q4' },
+                        { label: 'q8 (balanced)', value: 'q8' },
+                        { label: 'fp16 (half precision)', value: 'fp16' },
+                        { label: 'fp32 (full precision)', value: 'fp32' }
+                      ]}
+                    />
+                  </Form.Item>
+                </>
+              )
+            }]}
+          />
         </Form>
       )}
     </Modal>

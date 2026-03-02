@@ -1,4 +1,10 @@
-import { parentPort } from 'worker_threads'
+import { parentPort, workerData } from 'worker_threads'
+
+type DType = 'q4' | 'q8' | 'fp16' | 'fp32' | 'auto' | 'int8' | 'uint8' | 'bnb4' | 'q4f16'
+
+const classifierModelId: string = workerData?.classifierModelId ?? 'Xenova/mobilebert-uncased-mnli'
+const sentimentModelId: string = workerData?.sentimentModelId ?? 'Xenova/distilbert-base-uncased-finetuned-sst-2-english'
+const dtype = (workerData?.dtype ?? 'q8') as DType
 
 interface WorkerRequest {
   requestId: string
@@ -23,10 +29,10 @@ async function loadClassifier() {
     const { pipeline } = await import('@huggingface/transformers')
     classifier = await pipeline(
       'zero-shot-classification',
-      'Xenova/mobilebert-uncased-mnli',
-      { dtype: 'q8' }
+      classifierModelId,
+      { dtype }
     )
-    console.log('[classifier-worker] MobileBERT-MNLI model loaded (zero-shot classification)')
+    console.log(`[classifier-worker] Classifier model loaded: ${classifierModelId} (dtype: ${dtype})`)
   } catch (err) {
     console.error('[classifier-worker] Failed to load classifier model:', err)
     throw err
@@ -40,10 +46,10 @@ async function loadSentiment() {
     const { pipeline } = await import('@huggingface/transformers')
     sentimentAnalyzer = await pipeline(
       'sentiment-analysis',
-      'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
-      { dtype: 'q8' }
+      sentimentModelId,
+      { dtype }
     )
-    console.log('[classifier-worker] DistilBERT-SST2 model loaded (sentiment analysis)')
+    console.log(`[classifier-worker] Sentiment model loaded: ${sentimentModelId} (dtype: ${dtype})`)
   } catch (err) {
     console.error('[classifier-worker] Failed to load sentiment model:', err)
     throw err
