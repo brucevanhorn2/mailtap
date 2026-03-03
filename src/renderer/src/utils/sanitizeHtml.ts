@@ -32,12 +32,18 @@ export function sanitizeEmailHtml(
   const images = doc.querySelectorAll('img')
   images.forEach((img) => {
     const src = img.getAttribute('src') ?? ''
-    const isExternal = src.startsWith('http://') || src.startsWith('https://')
+    // Protocol-relative URLs (//example.com/img.png) are also external — they
+    // resolve to https: in most contexts but fail when the base is about:srcdoc.
+    const isExternal =
+      src.startsWith('http://') || src.startsWith('https://') || src.startsWith('//')
     if (isExternal) {
       hasExternalImages = true
       if (!options.showExternalImages) {
         img.setAttribute('data-original-src', src)
         img.setAttribute('src', '')
+      } else if (src.startsWith('//')) {
+        // Normalise protocol-relative to https so the iframe can fetch it
+        img.setAttribute('src', 'https:' + src)
       }
     }
   })

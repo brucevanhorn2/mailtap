@@ -47,6 +47,26 @@ function createWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
+  // Allow external images to load inside the sandboxed email HTML iframe.
+  // Some image servers send `Cross-Origin-Resource-Policy: same-origin` which
+  // Chromium/Electron enforces by blocking the load — even for plain <img> tags.
+  // Removing that header lets the email viewer's "Show images" feature work.
+  // Use a case-insensitive loop to guard against mixed-case header names, and
+  // short-circuit when responseHeaders is absent (non-HTTP responses).
+  win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    if (!details.responseHeaders) {
+      callback({})
+      return
+    }
+    const responseHeaders: Record<string, string[]> = {}
+    for (const [key, value] of Object.entries(details.responseHeaders)) {
+      if (key.toLowerCase() !== 'cross-origin-resource-policy') {
+        responseHeaders[key] = value
+      }
+    }
+    callback({ responseHeaders })
+  })
+
   const saveBounds = () => {
     const b = win.getBounds()
     settingsService.saveWindowBounds(b)
