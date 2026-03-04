@@ -29,17 +29,20 @@ export function MailViewerPane() {
     useMailViewer()
   const { deleteMail, markRead, markStarred } = useMail()
   const aiEnabled = useAiStore((s) => s.enabled)
+  const threatThreshold = useAiStore((s) => s.settings?.threatThreshold ?? 0.5)
 
   const [bodyData, setBodyData] = useState<MailBodyData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showSummary, setShowSummary] = useState(false)
+  const [allowThreatInteraction, setAllowThreatInteraction] = useState(false)
   const summaryRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!selectedId) {
       setBodyData(null)
       setError(null)
+      setAllowThreatInteraction(false)
       return
     }
 
@@ -89,7 +92,7 @@ export function MailViewerPane() {
     return () => window.removeEventListener('mailtap:show-dashboard', handler)
   }, [setViewerTab])
 
-  const isThreat = (selectedMessage?.aiThreatScore ?? 0) > 0.5
+  const isThreat = (selectedMessage?.aiThreatScore ?? 0) > threatThreshold
 
   // Filter callbacks for AnalyticsHome
   const handleFilterByLabel = (label: string) => {
@@ -267,16 +270,31 @@ export function MailViewerPane() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'space-between',
                 gap: 8,
                 padding: '8px 20px',
-                backgroundColor: '#2a1a1a',
-                borderBottom: '1px solid #4a2a2a',
+                backgroundColor: allowThreatInteraction ? '#1a2a1a' : '#2a1a1a',
+                borderBottom: allowThreatInteraction ? '1px solid #2a4a2a' : '1px solid #4a2a2a',
                 fontSize: 13,
-                color: '#ff7875',
+                color: allowThreatInteraction ? '#52c41a' : '#ff7875',
                 flexShrink: 0
               }}
             >
-              This email was flagged as a potential threat. Links and attachments have been disabled.
+              <span>
+                {allowThreatInteraction
+                  ? 'Threat protection disabled — use with caution'
+                  : 'This email was flagged as a potential threat. Links and attachments have been disabled.'}
+              </span>
+              {!allowThreatInteraction && (
+                <Button
+                  type="link"
+                  size="small"
+                  onClick={() => setAllowThreatInteraction(true)}
+                  style={{ color: '#ff7875', padding: 0, height: 'auto' }}
+                >
+                  Open Anyway
+                </Button>
+              )}
             </div>
           )}
 
@@ -336,7 +354,7 @@ export function MailViewerPane() {
               text={bodyData.text}
               showExternalImages={showExternalImages}
               onExternalImagesDetected={setHasExternalImages}
-              isThreat={isThreat}
+              isThreat={isThreat && !allowThreatInteraction}
             />
           ) : null}
 
@@ -345,7 +363,7 @@ export function MailViewerPane() {
             <AttachmentList
               attachments={bodyData.attachments}
               messageId={selectedId}
-              disabled={isThreat}
+              disabled={isThreat && !allowThreatInteraction}
             />
           )}
 

@@ -12,6 +12,7 @@ import type { Message, EmailAddress } from '@shared/types'
 import { AccountBadge } from '../common/AccountBadge'
 import { formatDateFull } from '../../utils/dateFormat'
 import { LabelScoreBreakdown } from '../ai/LabelScoreBreakdown'
+import { useAiStore } from '../../store/aiStore'
 
 interface MailHeaderProps {
   message: Message
@@ -70,6 +71,9 @@ function RecipientList({ addresses, label }: { addresses: EmailAddress[]; label:
 }
 
 export function MailHeader({ message, onMarkRead, onStarToggle, onDelete, onSummarize }: MailHeaderProps) {
+  const { settings } = useAiStore()
+  const threatThreshold = settings?.threatThreshold ?? 0.5
+
   return (
     <div
       style={{
@@ -194,8 +198,8 @@ export function MailHeader({ message, onMarkRead, onStarToggle, onDelete, onSumm
       {message.aiLabels && Object.keys(message.aiLabels).length > 0 && (
         <div style={{ marginTop: 12, paddingLeft: 42 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            {message.aiThreatScore != null && message.aiThreatScore > 0.3 && (
-              <Tag color={message.aiThreatScore > 0.7 ? 'red' : 'orange'} style={{ fontSize: 11 }}>
+            {message.aiThreatScore != null && message.aiThreatScore > threatThreshold && (
+              <Tag color={message.aiThreatScore > threatThreshold * 1.5 ? 'red' : 'orange'} style={{ fontSize: 11 }}>
                 Threat: {Math.round(message.aiThreatScore * 100)}%
               </Tag>
             )}

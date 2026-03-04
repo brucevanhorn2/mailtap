@@ -235,6 +235,7 @@ export interface AiSettings {
   autoEmbed: boolean
   spamThreshold: number
   threatThreshold: number
+  labelMinScore: number
   customLabels: string[]
   llmEnabled: boolean
   llmModelId: string | null

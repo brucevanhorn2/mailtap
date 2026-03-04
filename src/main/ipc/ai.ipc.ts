@@ -265,6 +265,18 @@ export function registerAiIpc(): void {
 
   ipcMain.handle('ai:save-settings', async (_event, aiSettings: AiSettings) => {
     try {
+      // Validate threshold values are in valid range [0, 1]
+      const thresholds = ['spamThreshold', 'threatThreshold', 'labelMinScore'] as const
+      for (const key of thresholds) {
+        const value = aiSettings[key]
+        if (typeof value !== 'number' || value < 0 || value > 1) {
+          return {
+            success: false,
+            error: `${key} must be a number between 0 and 1, got ${value}`
+          } as IpcResult
+        }
+      }
+
       const settings = settingsService.load()
       settings.ai = aiSettings
       settingsService.save(settings)
@@ -365,6 +377,7 @@ function getDefaultAiSettings(): AiSettings {
     autoEmbed: true,
     spamThreshold: 0.7,
     threatThreshold: 0.5,
+    labelMinScore: 0.3,
     customLabels: [
       'potential client',
       'legal document',

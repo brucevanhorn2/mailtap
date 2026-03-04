@@ -199,8 +199,10 @@ export function AiSettingsPanel() {
                 </span>
               }
               name="spamThreshold"
+              getValueFromEvent={(v) => v / 100}
+              getValueProps={(v) => ({ value: (v ?? 0) * 100 })}
             >
-              <Slider min={0} max={1} step={0.05} marks={{ 0: '0', 0.5: '0.5', 1: '1' }} />
+              <Slider min={0} max={100} step={5} marks={{ 0: '0%', 50: '50%', 100: '100%' }} />
             </Form.Item>
 
             <Form.Item
@@ -213,8 +215,26 @@ export function AiSettingsPanel() {
                 </span>
               }
               name="threatThreshold"
+              getValueFromEvent={(v) => v / 100}
+              getValueProps={(v) => ({ value: (v ?? 0) * 100 })}
             >
-              <Slider min={0} max={1} step={0.05} marks={{ 0: '0', 0.5: '0.5', 1: '1' }} />
+              <Slider min={0} max={100} step={5} marks={{ 0: '0%', 50: '50%', 100: '100%' }} />
+            </Form.Item>
+
+            <Form.Item
+              label={
+                <span>
+                  Label Confidence Threshold{' '}
+                  <Tooltip title="AI labels below this confidence score are ignored">
+                    <InfoCircleOutlined />
+                  </Tooltip>
+                </span>
+              }
+              name="labelMinScore"
+              getValueFromEvent={(v) => v / 100}
+              getValueProps={(v) => ({ value: (v ?? 0) * 100 })}
+            >
+              <Slider min={0} max={100} step={5} marks={{ 0: '0%', 50: '50%', 100: '100%' }} />
             </Form.Item>
 
             <Form.Item
