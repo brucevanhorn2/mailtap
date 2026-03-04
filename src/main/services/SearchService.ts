@@ -240,8 +240,11 @@ class SearchService {
           total: countRow.cnt
         }
       } else if (useAttachmentFts) {
-        // attachment_content_fts only: direct JOIN, snippet from content column (index 3)
-        // A message may have multiple matching attachments — GROUP BY dedups the result set.
+        // attachment_content_fts only: direct JOIN, snippet from content column (index 3).
+        // A message may have multiple matching attachments — GROUP BY m.id dedups the result
+        // set to one row per message. SQLite picks an arbitrary matching attachment row per
+        // group for the snippet(), so the excerpt may not be from the "best" match, but it
+        // will always be a valid snippet from one of the matched attachments.
         const extraWhere = conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : ''
 
         const countSql = `

@@ -29,8 +29,8 @@ const DANGEROUS_EXTENSIONS = new Set([
   '.run', '.sh', '.bash', '.deb', '.rpm', '.appimage',
   // Java
   '.jar', '.jnlp', '.class',
-  // Office macro-enabled formats
-  '.docm', '.dotm', '.xlsm', '.xlsb', '.xltm', '.xls', '.xlam',
+  // Office macro-enabled formats (.xls plain spreadsheet intentionally excluded — too common)
+  '.docm', '.dotm', '.xlsm', '.xlsb', '.xltm', '.xlam',
   '.pptm', '.potm', '.ppam', '.ppsm', '.sldm',
 ])
 

@@ -237,7 +237,7 @@ class MailRepository {
   }
 
   deleteMailboxMessages(mailboxId: string): void {
-    // First, delete FTS rows for all messages in this mailbox
+    // First, collect IDs so we can clean all FTS indexes for those messages
     const messageIds = this.db
       .prepare<[string]>('SELECT id FROM messages WHERE mailbox_id = ?')
       .all(mailboxId) as { id: string }[]
@@ -245,10 +245,14 @@ class MailRepository {
     const deleteFts = this.db.prepare<[string]>(
       'DELETE FROM messages_fts WHERE message_id = ?'
     )
+    const deleteAttachFts = this.db.prepare<[string]>(
+      'DELETE FROM attachment_content_fts WHERE message_id = ?'
+    )
 
     const deleteAll = this.db.transaction(() => {
       for (const { id } of messageIds) {
         deleteFts.run(id)
+        deleteAttachFts.run(id)
       }
       this.db
         .prepare<[string]>('DELETE FROM messages WHERE mailbox_id = ?')

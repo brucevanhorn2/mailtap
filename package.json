@@ -35,7 +35,7 @@
     "mailparser": "^3.7.2",
     "mammoth": "^1.11.0",
     "node-llama-cpp": "^3.16.2",
-    "pdf-parse": "^2.4.5",
+    "pdf-parse": "^1.1.4",
     "react-window": "^1.8.10",
     "recharts": "^2.14.0",
     "sqlite-vec": "^0.1.7-alpha.2",
