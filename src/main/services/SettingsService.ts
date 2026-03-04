@@ -15,13 +15,20 @@ const store = new Store<AppSettings & { windowBounds?: AppSettings['windowBounds
 
 export class SettingsService {
   load(): AppSettings {
+    const storedAi = store.get('ai') as any
+
+    // Migration: ensure labelMinScore exists for older settings
+    const ai = storedAi && typeof storedAi === 'object' && !('labelMinScore' in storedAi)
+      ? { ...storedAi, labelMinScore: 0.3 }
+      : (storedAi as AppSettings['ai'])
+
     return {
       windowBounds: store.get('windowBounds') as AppSettings['windowBounds'],
       sidebarWidth: store.get('sidebarWidth', 240) as number,
       showExternalImages: store.get('showExternalImages', false) as boolean,
       syncOnStartup: store.get('syncOnStartup', true) as boolean,
       enableLogging: store.get('enableLogging', false) as boolean,
-      ai: store.get('ai') as AppSettings['ai']
+      ai
     }
   }
 

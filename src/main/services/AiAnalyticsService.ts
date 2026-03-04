@@ -246,6 +246,12 @@ class AiAnalyticsService {
       const cutoffTime = Date.now() - days * 24 * 60 * 60 * 1000
       const settings = settingsService.load()
       const threatThreshold = settings.ai?.threatThreshold ?? 0.5
+
+      // Bucketing strategy:
+      // - High-risk: score > threatThreshold (alerts on configured threat level)
+      // - Medium-risk: score > 50% of threatThreshold AND <= threatThreshold
+      // This scales proportionally: if user raises threshold, fewer emails are flagged
+      // Minimum medium-risk floor of 0.3 ensures some visibility even if threshold is very low
       const mediumRiskThreshold = Math.max(0.3, threatThreshold * 0.5)
 
       const accountFilter = accountId ? 'AND account_id = ?' : ''

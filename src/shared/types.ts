@@ -131,7 +131,6 @@ export interface MailListQuery {
   senderEmail?: string
   dateFrom?: number
   dateTo?: number
-  virtualFolderId?: string
 }
 
 export interface MailListResult {
@@ -327,88 +326,6 @@ export interface AccountStats {
   total30d: number
   total7d: number
   totalToday: number
-}
-
-// ─── Rules Engine ────────────────────────────────────────────────────────────
-
-export type RuleConditionField =
-  | 'from' | 'to' | 'subject' | 'body' | 'senderDomain' | 'accountId'
-  | 'hasAttachments' | 'aiSpamScore' | 'aiThreatScore' | 'aiLabel' | 'aiSentiment'
-
-export type RuleConditionOperator =
-  | 'contains' | 'notContains' | 'is' | 'isNot' | 'startsWith'
-  | 'greaterThan' | 'lessThan'
-
-export interface RuleCondition {
-  field: RuleConditionField
-  operator: RuleConditionOperator
-  value: string
-}
-
-export type RuleActionType =
-  | 'markRead' | 'markUnread' | 'markStarred'
-  | 'addToVirtualFolder'
-  | 'delete'
-
-export interface RuleAction {
-  type: RuleActionType
-  virtualFolderId?: string
-}
-
-export interface Rule {
-  id: string
-  name: string
-  enabled: boolean
-  conditionMode: 'all' | 'any'
-  conditions: RuleCondition[]
-  actions: RuleAction[]
-  stopProcessing: boolean
-  sortOrder: number
-  createdAt: number
-  updatedAt: number
-}
-
-export interface AddRulePayload {
-  name: string
-  conditionMode: 'all' | 'any'
-  conditions: RuleCondition[]
-  actions: RuleAction[]
-  stopProcessing: boolean
-}
-
-export interface UpdateRulePayload extends Partial<Omit<Rule, 'id' | 'createdAt'>> {
-  id: string
-}
-
-// ─── Virtual Folders ─────────────────────────────────────────────────────────
-
-export interface VirtualFolder {
-  id: string
-  name: string
-  icon: string
-  color?: string
-  sortOrder: number
-  createdAt: number
-  messageCount: number
-  unreadCount: number
-}
-
-export interface AddVirtualFolderPayload {
-  name: string
-  icon?: string
-  color?: string
-}
-
-export interface UpdateVirtualFolderPayload {
-  id: string
-  name?: string
-  icon?: string
-  color?: string
-}
-
-export interface RuleProgressEvent {
-  current: number
-  total: number
 }
 
 // ─── IPC generic ─────────────────────────────────────────────────────────────

@@ -198,8 +198,8 @@ export function MailHeader({ message, onMarkRead, onStarToggle, onDelete, onSumm
       {message.aiLabels && Object.keys(message.aiLabels).length > 0 && (
         <div style={{ marginTop: 12, paddingLeft: 42 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            {message.aiThreatScore != null && message.aiThreatScore > threatThreshold * 0.6 && (
-              <Tag color={message.aiThreatScore > threatThreshold ? 'red' : 'orange'} style={{ fontSize: 11 }}>
+            {message.aiThreatScore != null && message.aiThreatScore > threatThreshold && (
+              <Tag color={message.aiThreatScore > threatThreshold * 1.5 ? 'red' : 'orange'} style={{ fontSize: 11 }}>
                 Threat: {Math.round(message.aiThreatScore * 100)}%
               </Tag>
             )}
