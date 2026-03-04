@@ -365,6 +365,7 @@ function getDefaultAiSettings(): AiSettings {
     autoEmbed: true,
     spamThreshold: 0.7,
     threatThreshold: 0.5,
+    labelMinScore: 0.3,
     customLabels: [
       'potential client',
       'legal document',

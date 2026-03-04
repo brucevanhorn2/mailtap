@@ -4,6 +4,7 @@ import { PaperClipOutlined, StarFilled, StarOutlined, WarningOutlined, SmileOutl
 import type { Message } from '@shared/types'
 import { formatDate } from '../../utils/dateFormat'
 import { AccountBadge } from '../common/AccountBadge'
+import { useAiStore } from '../../store/aiStore'
 
 interface MailListItemProps {
   message: Message
@@ -21,6 +22,7 @@ export function MailListItem({
   onStarToggle
 }: MailListItemProps) {
   const [hovered, setHovered] = React.useState(false)
+  const threatThreshold = useAiStore((s) => s.settings?.threatThreshold ?? 0.5)
 
   let bg = 'transparent'
   if (isSelected) bg = '#1a2a3e'
@@ -105,7 +107,7 @@ export function MailListItem({
           {message.hasAttachments && (
             <PaperClipOutlined style={{ fontSize: 11, color: '#a0a0a8' }} />
           )}
-          {(message.aiThreatScore ?? 0) > 0.5 && (
+          {(message.aiThreatScore ?? 0) > threatThreshold && (
             <Tooltip title={`Threat: ${Math.round((message.aiThreatScore ?? 0) * 100)}%`}>
               <WarningOutlined style={{ fontSize: 11, color: '#ff4d4f' }} />
             </Tooltip>

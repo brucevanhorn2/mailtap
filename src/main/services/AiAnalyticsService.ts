@@ -1,4 +1,5 @@
 import { storageService } from './StorageService'
+import { settingsService } from './SettingsService'
 import { logger } from '../utils/logger'
 import type { AccountStats } from '@shared/types'
 
@@ -243,22 +244,25 @@ class AiAnalyticsService {
     try {
       const db = storageService.db
       const cutoffTime = Date.now() - days * 24 * 60 * 60 * 1000
+      const settings = settingsService.load()
+      const threatThreshold = settings.ai?.threatThreshold ?? 0.5
+      const mediumRiskThreshold = Math.max(0.3, threatThreshold * 0.5)
 
       const accountFilter = accountId ? 'AND account_id = ?' : ''
       const baseParams: (string | number)[] = accountId ? [cutoffTime, accountId] : [cutoffTime]
 
-      // Count threats by severity
+      // Count threats by severity using dynamic thresholds
       const countRow = db.prepare(`
         SELECT
-          SUM(CASE WHEN ai_threat_score > 0.7 THEN 1 ELSE 0 END) as high_risk,
-          SUM(CASE WHEN ai_threat_score > 0.4 AND ai_threat_score <= 0.7 THEN 1 ELSE 0 END) as medium_risk,
+          SUM(CASE WHEN ai_threat_score > ? THEN 1 ELSE 0 END) as high_risk,
+          SUM(CASE WHEN ai_threat_score > ? AND ai_threat_score <= ? THEN 1 ELSE 0 END) as medium_risk,
           COUNT(*) as total
         FROM messages
         WHERE ai_threat_score IS NOT NULL
           AND is_deleted = 0
           AND received_at > ?
           ${accountFilter}
-      `).get(...baseParams) as any
+      `).get(threatThreshold, mediumRiskThreshold, threatThreshold, ...baseParams) as any
 
       // No longer fetching detail rows — they were only used by the removed table
       const detailRows: any[] = []
