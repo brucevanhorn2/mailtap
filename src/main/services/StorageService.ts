@@ -4,7 +4,7 @@ import * as sqliteVec from 'sqlite-vec'
 import { getDbPath } from '../utils/paths'
 import { logger } from '../utils/logger'
 
-const SCHEMA_VERSION = 2
+const SCHEMA_VERSION = 3
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -154,6 +154,14 @@ class StorageService {
           )
           logger.info('Migration v2 applied')
         }
+        if (currentVersion < 3) {
+          this.applyMigrationV3()
+          db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(
+            3,
+            Date.now()
+          )
+          logger.info('Migration v3 applied')
+        }
       })
 
       migrate()
@@ -237,6 +245,18 @@ class StorageService {
       CREATE VIRTUAL TABLE IF NOT EXISTS message_embeddings USING vec0(
         message_id TEXT PRIMARY KEY,
         embedding float[384]
+      );
+    `)
+  }
+
+  private applyMigrationV3(): void {
+    const db = this._db!
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS attachment_content_fts USING fts5(
+        attachment_id UNINDEXED,
+        message_id    UNINDEXED,
+        filename,
+        content
       );
     `)
   }
