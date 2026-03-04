@@ -151,6 +151,7 @@ export interface SearchQuery {
   before?: number         // Unix timestamp (ms) — messages sent before this
   after?: number          // Unix timestamp (ms) — messages sent after this
   hasAttachment?: boolean
+  attachment?: string     // full-text search within attachment content (extracted text)
   isUnread?: boolean
   isStarred?: boolean
   isCcMe?: boolean        // any of the user's account emails is in the CC field

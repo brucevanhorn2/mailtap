@@ -24,7 +24,8 @@ function Chip({ chip, onRemove }: { chip: FilterChip; onRemove: () => void }) {
     before: 'before',
     after: 'after',
     is: 'is',
-    has: 'has'
+    has: 'has',
+    attachment: 'attach'
   }
   return (
     <span
@@ -123,6 +124,7 @@ export function SearchBar() {
         q.body ||
         q.from ||
         q.to ||
+        q.attachment ||
         q.before != null ||
         q.after != null ||
         q.hasAttachment ||
@@ -152,8 +154,8 @@ export function SearchBar() {
         setSuggestions([])
         return
       }
-      // Don't suggest for body (no useful completions)
-      if (ctx.tag === 'body') {
+      // Don't suggest for body/attachment (no useful completions — free-text values)
+      if (ctx.tag === 'body' || ctx.tag === 'attachment') {
         setSuggestions([])
         return
       }

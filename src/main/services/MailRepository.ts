@@ -586,6 +586,33 @@ class MailRepository {
       .prepare<[string]>('DELETE FROM messages_fts WHERE message_id = ?')
       .run(messageId)
   }
+
+  // ─── Attachment content FTS ───────────────────────────────────────────────
+
+  insertAttachmentContent(data: {
+    attachmentId: string
+    messageId: string
+    filename: string
+    content: string
+  }): void {
+    // Delete any prior entry for this attachment first to avoid duplicates
+    this.db
+      .prepare<[string]>('DELETE FROM attachment_content_fts WHERE attachment_id = ?')
+      .run(data.attachmentId)
+
+    this.db
+      .prepare(
+        `INSERT INTO attachment_content_fts (attachment_id, message_id, filename, content)
+         VALUES (?, ?, ?, ?)`
+      )
+      .run(data.attachmentId, data.messageId, data.filename, data.content)
+  }
+
+  deleteAttachmentContent(attachmentId: string): void {
+    this.db
+      .prepare<[string]>('DELETE FROM attachment_content_fts WHERE attachment_id = ?')
+      .run(attachmentId)
+  }
 }
 
 export const mailRepository = new MailRepository()
