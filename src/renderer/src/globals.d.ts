@@ -24,6 +24,8 @@ import type {
   ThreatSummary,
   SentimentCount,
   AccountStats,
+  ComposePayload,
+  SendResult,
   IpcResult
 } from '../../shared/types'
 
@@ -59,6 +61,7 @@ declare global {
       invoke(channel: 'mail:mark-read', id: string, isRead: boolean): Promise<IpcResult>
       invoke(channel: 'mail:delete', id: string): Promise<IpcResult>
       invoke(channel: 'mail:save-attachment', messageId: string, attachmentId: string, savePath: string): Promise<IpcResult>
+      invoke(channel: 'mail:send', payload: ComposePayload): Promise<SendResult>
 
       // Mailbox
       invoke(channel: 'mailbox:list', accountId?: string): Promise<Mailbox[]>

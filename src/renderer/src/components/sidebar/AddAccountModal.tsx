@@ -39,6 +39,9 @@ type Provider = {
   imapHost: string
   imapPort: number
   imapTls: boolean
+  smtpHost: string
+  smtpPort: number
+  smtpTls: boolean
   note?: string
 }
 
@@ -50,6 +53,9 @@ const PROVIDERS: Provider[] = [
     imapHost: 'imap.gmail.com',
     imapPort: 993,
     imapTls: true,
+    smtpHost: 'smtp.gmail.com',
+    smtpPort: 587,
+    smtpTls: false,
     note: 'Google requires an App Password (not your regular password). Enable 2FA in your Google account first, then generate an App Password at myaccount.google.com/apppasswords.'
   },
   {
@@ -58,7 +64,10 @@ const PROVIDERS: Provider[] = [
     icon: <CloudOutlined />,
     imapHost: 'imap.mail.me.com',
     imapPort: 993,
-    imapTls: true
+    imapTls: true,
+    smtpHost: 'smtp.mail.me.com',
+    smtpPort: 587,
+    smtpTls: false
   },
   {
     key: 'microsoft365',
@@ -66,7 +75,10 @@ const PROVIDERS: Provider[] = [
     icon: <WindowsOutlined />,
     imapHost: 'outlook.office365.com',
     imapPort: 993,
-    imapTls: true
+    imapTls: true,
+    smtpHost: 'smtp-mail.outlook.com',
+    smtpPort: 587,
+    smtpTls: false
   },
   {
     key: 'yahoo',
@@ -74,7 +86,10 @@ const PROVIDERS: Provider[] = [
     icon: <MailOutlined />,
     imapHost: 'imap.mail.yahoo.com',
     imapPort: 993,
-    imapTls: true
+    imapTls: true,
+    smtpHost: 'smtp.mail.yahoo.com',
+    smtpPort: 587,
+    smtpTls: false
   },
   {
     key: 'other',
@@ -82,7 +97,10 @@ const PROVIDERS: Provider[] = [
     icon: <MailOutlined />,
     imapHost: '',
     imapPort: 993,
-    imapTls: true
+    imapTls: true,
+    smtpHost: '',
+    smtpPort: 587,
+    smtpTls: false
   }
 ]
 
@@ -97,6 +115,7 @@ export function AddAccountModal({ open, onClose, onSuccess }: AddAccountModalPro
   const [testMailboxCount, setTestMailboxCount] = useState<number>(0)
   const [submitting, setSubmitting] = useState(false)
   const [pendingPayload, setPendingPayload] = useState<AddAccountPayload | null>(null)
+  const [smtpSamePassword, setSmtpSamePassword] = useState(true)
 
   const { testConnection, addAccount } = useAccounts()
 
@@ -107,6 +126,7 @@ export function AddAccountModal({ open, onClose, onSuccess }: AddAccountModalPro
       setTestState('idle')
       setTestError('')
       setPendingPayload(null)
+      setSmtpSamePassword(true)
       form.resetFields()
     }
   }, [open, form])
@@ -118,6 +138,9 @@ export function AddAccountModal({ open, onClose, onSuccess }: AddAccountModalPro
       imapHost: provider.imapHost,
       imapPort: provider.imapPort,
       imapTls: provider.imapTls,
+      smtpHost: provider.smtpHost,
+      smtpPort: provider.smtpPort,
+      smtpTls: provider.smtpTls,
       authMethod: 'app_password'
     })
   }
@@ -127,15 +150,21 @@ export function AddAccountModal({ open, onClose, onSuccess }: AddAccountModalPro
       await form.validateFields(['name', 'email', 'imapHost', 'imapPort', 'password'])
       // Snapshot values NOW while the Form is still mounted — it will unmount when we move to step 3
       const values = form.getFieldsValue()
+      const emailVal = values.email ?? ''
       const payload: AddAccountPayload = {
         name: values.name,
-        email: values.email,
+        email: emailVal,
         provider: values.provider ?? selectedProvider.key,
         authMethod: values.authMethod ?? 'app_password',
         imapHost: values.imapHost,
         imapPort: values.imapPort,
         imapTls: values.imapTls ?? true,
+        smtpHost: values.smtpHost ?? selectedProvider.smtpHost,
+        smtpPort: values.smtpPort ?? selectedProvider.smtpPort,
+        smtpTls: values.smtpTls ?? selectedProvider.smtpTls,
+        smtpUser: values.smtpUser || emailVal,
         password: values.password,
+        smtpPassword: smtpSamePassword ? undefined : values.smtpPassword,
         syncIntervalMinutes: 15
       }
       setPendingPayload(payload)
@@ -292,6 +321,9 @@ export function AddAccountModal({ open, onClose, onSuccess }: AddAccountModalPro
             imapHost: selectedProvider.imapHost,
             imapPort: selectedProvider.imapPort,
             imapTls: selectedProvider.imapTls,
+            smtpHost: selectedProvider.smtpHost,
+            smtpPort: selectedProvider.smtpPort,
+            smtpTls: selectedProvider.smtpTls,
             authMethod: 'app_password'
           }}
           size="middle"
@@ -380,6 +412,71 @@ export function AddAccountModal({ open, onClose, onSuccess }: AddAccountModalPro
               }
             />
           </Form.Item>
+
+          <Divider style={{ borderColor: '#2a2a2e', margin: '12px 0' }}>
+            <Text style={{ fontSize: 12, color: '#a0a0a8' }}>SMTP Settings</Text>
+          </Divider>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10 }}>
+            <Form.Item
+              label="SMTP Host"
+              name="smtpHost"
+              style={{ marginBottom: 12 }}
+            >
+              <Input placeholder="smtp.example.com" />
+            </Form.Item>
+
+            <Form.Item
+              label="Port"
+              name="smtpPort"
+              style={{ marginBottom: 12, width: 90 }}
+            >
+              <Select
+                options={[
+                  { value: 587, label: '587' },
+                  { value: 465, label: '465' },
+                  { value: 25, label: '25' }
+                ]}
+              />
+            </Form.Item>
+          </div>
+
+          <Form.Item
+            label="Use TLS/SSL (port 465)"
+            name="smtpTls"
+            valuePropName="checked"
+            style={{ marginBottom: 12 }}
+          >
+            <Switch />
+          </Form.Item>
+
+          <Form.Item label="SMTP Username" name="smtpUser" style={{ marginBottom: 12 }}>
+            <Input placeholder="Defaults to email address" />
+          </Form.Item>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: smtpSamePassword ? 0 : 12,
+              fontSize: 13,
+              color: '#a0a0a8'
+            }}
+          >
+            <Switch
+              size="small"
+              checked={smtpSamePassword}
+              onChange={setSmtpSamePassword}
+            />
+            <span>Use same password as IMAP</span>
+          </div>
+
+          {!smtpSamePassword && (
+            <Form.Item label="SMTP Password" name="smtpPassword" style={{ marginTop: 12 }}>
+              <Input.Password placeholder="SMTP password" />
+            </Form.Item>
+          )}
         </Form>
       )}
 

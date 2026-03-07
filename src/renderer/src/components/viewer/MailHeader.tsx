@@ -6,7 +6,8 @@ import {
   EyeOutlined,
   EyeInvisibleOutlined,
   DeleteOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  RollbackOutlined
 } from '@ant-design/icons'
 import type { Message, EmailAddress } from '@shared/types'
 import { AccountBadge } from '../common/AccountBadge'
@@ -20,6 +21,7 @@ interface MailHeaderProps {
   onStarToggle?: () => void
   onDelete?: () => void
   onSummarize?: () => void
+  onReply?: () => void
 }
 
 const MAX_VISIBLE_RECIPIENTS = 3
@@ -70,7 +72,7 @@ function RecipientList({ addresses, label }: { addresses: EmailAddress[]; label:
   )
 }
 
-export function MailHeader({ message, onMarkRead, onStarToggle, onDelete, onSummarize }: MailHeaderProps) {
+export function MailHeader({ message, onMarkRead, onStarToggle, onDelete, onSummarize, onReply }: MailHeaderProps) {
   const { settings } = useAiStore()
   const threatThreshold = settings?.threatThreshold ?? 0.5
 
@@ -131,6 +133,16 @@ export function MailHeader({ message, onMarkRead, onStarToggle, onDelete, onSumm
 
         {/* Action buttons + date */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+          {onReply && (
+            <Tooltip title="Reply">
+              <Button
+                type="text"
+                size="small"
+                icon={<RollbackOutlined style={{ color: '#4f9eff' }} />}
+                onClick={onReply}
+              />
+            </Tooltip>
+          )}
           {onStarToggle && (
             <Tooltip title={message.isStarred ? 'Unstar' : 'Star'}>
               <Button
