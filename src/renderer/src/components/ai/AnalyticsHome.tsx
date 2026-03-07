@@ -9,7 +9,7 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer
 } from 'recharts'
-import type { LabelCount, SenderStat, ThreatSummary, SentimentCount, AccountStats } from '@shared/types'
+import type { LabelCount, SenderStat, ThreatSummary, SentimentCount, AccountStats, StorageStat } from '@shared/types'
 import { useAccountStore } from '../../store/accountStore'
 
 // ─── Color palettes ───────────────────────────────────────────────────────────
@@ -40,6 +40,13 @@ const SENTIMENT_CONFIG: Record<string, { color: string; label: string }> = {
 
 function formatNumber(n: number | null | undefined): string {
   return (n ?? 0).toLocaleString()
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }
 
 /** Blue → Purple → Red based on spam score 0–1 */
@@ -254,22 +261,25 @@ export function AnalyticsHome({
   const [threats, setThreats] = useState<ThreatSummary | null>(null)
   const [sentiment, setSentiment] = useState<SentimentCount[]>([])
   const [accountStats, setAccountStats] = useState<AccountStats[]>([])
+  const [storageStats, setStorageStats] = useState<StorageStat[]>([])
 
   const loadAnalytics = async () => {
     try {
       setLoading(true)
-      const [classData, senderData, threatData, sentimentData, statsData] = await Promise.all([
+      const [classData, senderData, threatData, sentimentData, statsData, storageData] = await Promise.all([
         window.mailtap.invoke('ai:analytics-classification'),
         window.mailtap.invoke('ai:analytics-senders', 50),
         window.mailtap.invoke('ai:analytics-threats', 30),
         window.mailtap.invoke('ai:analytics-sentiment'),
-        window.mailtap.invoke('ai:analytics-account-stats')
+        window.mailtap.invoke('ai:analytics-account-stats'),
+        window.mailtap.invoke('ai:analytics-storage')
       ])
       setClassification(classData)
       setSenders(senderData)
       setThreats(threatData)
       setSentiment(sentimentData)
       setAccountStats(statsData)
+      setStorageStats(storageData as StorageStat[])
     } catch (err) {
       message.error('Failed to load analytics')
       console.error(err)
@@ -427,6 +437,68 @@ export function AnalyticsHome({
           </div>
         )}
       </Card>
+
+      {/* ── Storage stats ───────────────────────────────────────────────── */}
+      {storageStats.length > 0 && (() => {
+        const totalMsgBytes   = storageStats.reduce((s, r) => s + r.messageBytes, 0)
+        const totalAtchBytes  = storageStats.reduce((s, r) => s + r.attachmentBytes, 0)
+        const totalBytes      = totalMsgBytes + totalAtchBytes
+        const maxAccountBytes = Math.max(...storageStats.map((r) => r.messageBytes + r.attachmentBytes), 1)
+
+        return (
+          <Card size="small" title="Storage">
+            {/* Totals */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 16 }}>
+              <Statistic title="Total Used" value={formatBytes(totalBytes)} />
+              <Statistic title="Messages" value={formatBytes(totalMsgBytes)} />
+              <Statistic title="Attachments" value={formatBytes(totalAtchBytes)} />
+            </div>
+
+            {/* Per-account bars */}
+            {storageStats.length > 1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid #2a2a2e', paddingTop: 12 }}>
+                {storageStats.map((stat) => {
+                  const account = accounts.find((a) => a.id === stat.accountId)
+                  const total = stat.messageBytes + stat.attachmentBytes
+                  const msgPct = total > 0 ? (stat.messageBytes / total) * 100 : 0
+                  const atchPct = total > 0 ? (stat.attachmentBytes / total) * 100 : 0
+                  const barPct = (total / maxAccountBytes) * 100
+
+                  return (
+                    <div key={stat.accountId}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ fontSize: 12, color: '#a0a0a8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>
+                          {account?.email ?? stat.accountId}
+                        </span>
+                        <span style={{ fontSize: 12, color: '#e2e2e2', flexShrink: 0 }}>
+                          {formatBytes(total)}
+                        </span>
+                      </div>
+                      {/* Stacked bar: messages (blue) + attachments (purple) */}
+                      <div style={{ height: 8, borderRadius: 4, backgroundColor: '#2a2a2e', overflow: 'hidden', width: `${barPct}%`, minWidth: 40 }}>
+                        <div style={{ display: 'flex', height: '100%' }}>
+                          <div style={{ width: `${msgPct}%`, backgroundColor: '#4f9eff', transition: 'width 0.3s' }} />
+                          <div style={{ width: `${atchPct}%`, backgroundColor: '#9b5de5', transition: 'width 0.3s' }} />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+                <div style={{ display: 'flex', gap: 16, marginTop: 4 }}>
+                  <span style={{ fontSize: 11, color: '#4f9eff', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: '#4f9eff', display: 'inline-block' }} />
+                    Messages
+                  </span>
+                  <span style={{ fontSize: 11, color: '#9b5de5', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: '#9b5de5', display: 'inline-block' }} />
+                    Attachments
+                  </span>
+                </div>
+              </div>
+            )}
+          </Card>
+        )
+      })()}
 
       {/* ── Three donut charts ──────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>

@@ -1,22 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { getEmailColor, getInitials } from '../../utils/emailColors'
 
-// These providers' favicons aren't useful as sender identity icons — use
-// Gravatar or the colored-circle fallback instead.
-const PERSONAL_DOMAINS = new Set([
-  'gmail.com', 'googlemail.com',
-  'yahoo.com', 'yahoo.co.uk', 'yahoo.fr', 'yahoo.de',
-  'hotmail.com', 'hotmail.co.uk', 'hotmail.fr',
-  'outlook.com', 'live.com', 'msn.com',
-  'icloud.com', 'me.com', 'mac.com',
-  'aol.com', 'aol.co.uk',
-  'protonmail.com', 'proton.me', 'pm.me',
-  'tutanota.com', 'tuta.io',
-  'fastmail.com', 'fastmail.fm',
-  'zoho.com', 'zohomail.com',
-  'yandex.com', 'yandex.ru',
-  'mail.com', 'gmx.com', 'gmx.net', 'gmx.de'
-])
 
 type Stage = 'loading' | 'gravatar' | 'logo' | 'initials'
 
@@ -38,8 +22,9 @@ export function AccountBadge({ email, name, size = 32 }: AccountBadgeProps) {
   const [gravatarUrl, setGravatarUrl] = useState('')
 
   const domain = (email.split('@')[1] ?? '').toLowerCase()
-  const isPersonal = PERSONAL_DOMAINS.has(domain)
-  // Google's S2 favicon service — reliable replacement for the defunct Clearbit Logo API
+  // Google's S2 favicon service — reliable replacement for the defunct Clearbit Logo API.
+  // Works for both corporate domains and well-known providers (gmail.com → Google G,
+  // outlook.com → Microsoft flag, icloud.com → Apple logo, etc.)
   const logoUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
 
   useEffect(() => {
@@ -101,7 +86,7 @@ export function AccountBadge({ email, name, size = 32 }: AccountBadgeProps) {
           height={size}
           draggable={false}
           style={{ objectFit: 'cover', display: 'block' }}
-          onError={() => (isPersonal ? setStage('initials') : setStage('logo'))}
+          onError={() => setStage('logo')}
         />
       </div>
     )

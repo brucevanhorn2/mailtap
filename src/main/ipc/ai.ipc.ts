@@ -257,6 +257,15 @@ export function registerAiIpc(): void {
     }
   })
 
+  ipcMain.handle('ai:analytics-storage', async () => {
+    try {
+      return aiAnalyticsService.getStorageStats()
+    } catch (err) {
+      logger.error('Error getting storage stats:', err)
+      return []
+    }
+  })
+
   // ─── Settings ───────────────────────────────────────────────────────────────
 
   ipcMain.handle('ai:get-settings', async () => {

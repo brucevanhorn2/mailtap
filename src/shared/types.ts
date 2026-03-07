@@ -329,6 +329,13 @@ export interface AccountStats {
   totalToday: number
 }
 
+export interface StorageStat {
+  accountId: string
+  messageCount: number
+  messageBytes: number
+  attachmentBytes: number
+}
+
 // ─── IPC generic ─────────────────────────────────────────────────────────────
 
 export interface IpcResult<T = void> {
