@@ -39,7 +39,8 @@ export function AccountBadge({ email, name, size = 32 }: AccountBadgeProps) {
 
   const domain = (email.split('@')[1] ?? '').toLowerCase()
   const isPersonal = PERSONAL_DOMAINS.has(domain)
-  const logoUrl = `https://logo.clearbit.com/${domain}`
+  // Google's S2 favicon service — reliable replacement for the defunct Clearbit Logo API
+  const logoUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
 
   useEffect(() => {
     let cancelled = false
