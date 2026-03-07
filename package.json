@@ -33,12 +33,15 @@
     "electron-store": "^8.2.0",
     "imapflow": "^1.0.169",
     "mailparser": "^3.7.2",
+    "mammoth": "^1.11.0",
     "node-llama-cpp": "^3.16.2",
+    "pdf-parse": "^1.1.4",
     "react-window": "^1.8.10",
     "recharts": "^2.14.0",
     "sqlite-vec": "^0.1.7-alpha.2",
     "uuid": "^11.0.5",
     "winston": "^3.19.0",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

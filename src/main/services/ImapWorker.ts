@@ -6,6 +6,7 @@ import { createImapClient } from './ImapConnection'
 import { accountService } from './AccountService'
 import { mailRepository } from './MailRepository'
 import { emlStore } from './EmlStore'
+import { extractAttachmentText } from './AttachmentExtractorService'
 import { logger } from '../utils/logger'
 
 const IDLE_TIMEOUT_MS = 28 * 60 * 1000 // 28 minutes per RFC 2177
@@ -380,9 +381,9 @@ export class ImapWorker {
         flags: flagsArray
       })
 
-      // 10. Upsert attachment rows
+      // 10. Upsert attachment rows + extract content for FTS
       for (const att of nonInlineAttachments) {
-        mailRepository.upsertAttachment({
+        const attachment = mailRepository.upsertAttachment({
           messageId: message.id,
           filename: att.filename ?? 'attachment',
           contentType: att.contentType,
@@ -390,6 +391,29 @@ export class ImapWorker {
           contentId: att.cid ?? null,
           isInline: false
         })
+
+        if (att.content && att.content.length > 0) {
+          try {
+            const text = await extractAttachmentText(
+              att.content,
+              att.contentType,
+              att.filename ?? 'attachment'
+            )
+            if (text) {
+              mailRepository.insertAttachmentContent({
+                attachmentId: attachment.id,
+                messageId: message.id,
+                filename: att.filename ?? 'attachment',
+                content: text
+              })
+            }
+          } catch (extractErr) {
+            logger.warn(
+              `ImapWorker[${this.account.id}]: attachment text extraction failed for ${att.filename}`,
+              extractErr
+            )
+          }
+        }
       }
 
       // 11. Insert FTS row

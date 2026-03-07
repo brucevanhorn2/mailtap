@@ -3,6 +3,7 @@ import { simpleParser, type ParsedMail, type AddressObject } from 'mailparser'
 import { storageService } from './StorageService'
 import { mailRepository } from './MailRepository'
 import { emlStore } from './EmlStore'
+import { extractAttachmentText } from './AttachmentExtractorService'
 import { getMailRoot } from '../utils/paths'
 import { logger } from '../utils/logger'
 
@@ -33,6 +34,7 @@ class IndexRebuildService {
     // We delete all FTS rows and all message rows directly.
     try {
       const db = storageService.db
+      db.exec('DELETE FROM attachment_content_fts')
       db.exec('DELETE FROM messages_fts')
       db.exec('DELETE FROM messages')
       logger.info('IndexRebuildService: cleared existing message rows')
@@ -130,10 +132,10 @@ class IndexRebuildService {
           attachmentNames
         })
 
-        // Upsert attachments
+        // Upsert attachments + extract content for FTS
         if (parsed.attachments) {
           for (const att of parsed.attachments) {
-            mailRepository.upsertAttachment({
+            const attachment = mailRepository.upsertAttachment({
               messageId: message.id,
               filename: att.filename ?? 'unnamed',
               contentType: att.contentType,
@@ -141,6 +143,29 @@ class IndexRebuildService {
               contentId: att.cid ?? null,
               isInline: att.related ?? false
             })
+
+            if (!att.related && att.content && att.content.length > 0) {
+              try {
+                const text = await extractAttachmentText(
+                  att.content,
+                  att.contentType,
+                  att.filename ?? 'unnamed'
+                )
+                if (text) {
+                  mailRepository.insertAttachmentContent({
+                    attachmentId: attachment.id,
+                    messageId: message.id,
+                    filename: att.filename ?? 'unnamed',
+                    content: text
+                  })
+                }
+              } catch (extractErr) {
+                logger.warn(
+                  `IndexRebuildService: attachment text extraction failed for ${att.filename}:`,
+                  extractErr
+                )
+              }
+            }
           }
         }
       } catch (err) {

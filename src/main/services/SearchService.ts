@@ -100,7 +100,7 @@ class SearchService {
   search(query: SearchQuery): SearchResultPage {
     const { limit, offset } = query
 
-    // Build FTS MATCH expression from text-based filters
+    // Build FTS MATCH expression from text-based filters (messages_fts)
     const ftsParts: string[] = []
     if (query.text?.trim()) ftsParts.push(query.text.trim())
     if (query.subject?.trim()) ftsParts.push(buildFtsTokens('subject', query.subject))
@@ -110,6 +110,9 @@ class SearchService {
 
     const useFts = ftsParts.length > 0
     const ftsMatch = ftsParts.join(' ')
+
+    const useAttachmentFts = !!(query.attachment?.trim())
+    const attachmentFtsMatch = useAttachmentFts ? query.attachment!.trim() : ''
 
     // SQL conditions (always applied)
     const conditions: string[] = ['m.is_deleted = 0']
@@ -163,13 +166,52 @@ class SearchService {
     }
 
     // No filters at all → return empty
-    if (!useFts && conditions.length === 1) {
+    if (!useFts && !useAttachmentFts && conditions.length === 1) {
       return { results: [], total: 0 }
     }
 
     try {
-      if (useFts) {
-        const extraWhere = conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : ''
+      if (useFts && useAttachmentFts) {
+        // Both messages_fts and attachment_content_fts: join messages_fts + IN subquery
+        const extraWhere = `AND ${conditions.join(' AND ')}`
+        const attachmentSubquery = `
+          AND m.id IN (
+            SELECT message_id FROM attachment_content_fts WHERE attachment_content_fts MATCH ?
+          )`
+
+        const countSql = `
+          SELECT COUNT(*) AS cnt
+          FROM messages m
+          JOIN messages_fts ON m.id = messages_fts.message_id
+          WHERE messages_fts MATCH ?
+          ${attachmentSubquery}
+          ${extraWhere}
+        `
+        const dataSql = `
+          SELECT m.*, snippet(messages_fts, 4, '<b>', '</b>', '\u2026', 12) AS snippet
+          FROM messages m
+          JOIN messages_fts ON m.id = messages_fts.message_id
+          WHERE messages_fts MATCH ?
+          ${attachmentSubquery}
+          ${extraWhere}
+          ORDER BY m.date DESC
+          LIMIT ? OFFSET ?
+        `
+
+        const countRow = this.db
+          .prepare(countSql)
+          .get(ftsMatch, attachmentFtsMatch, ...sqlParams) as { cnt: number }
+        const rows = this.db
+          .prepare(dataSql)
+          .all(ftsMatch, attachmentFtsMatch, ...sqlParams, limit, offset) as SearchRow[]
+
+        return {
+          results: rows.map((row) => ({ message: rowToMessage(row), snippet: row.snippet })),
+          total: countRow.cnt
+        }
+      } else if (useFts) {
+        // messages_fts only (existing behaviour)
+        const extraWhere = `AND ${conditions.join(' AND ')}`
 
         const countSql = `
           SELECT COUNT(*) AS cnt
@@ -179,9 +221,7 @@ class SearchService {
           ${extraWhere}
         `
         const dataSql = `
-          SELECT
-            m.*,
-            snippet(messages_fts, 4, '<b>', '</b>', '\u2026', 12) AS snippet
+          SELECT m.*, snippet(messages_fts, 4, '<b>', '</b>', '\u2026', 12) AS snippet
           FROM messages m
           JOIN messages_fts ON m.id = messages_fts.message_id
           WHERE messages_fts MATCH ?
@@ -194,6 +234,43 @@ class SearchService {
         const rows = this.db
           .prepare(dataSql)
           .all(ftsMatch, ...sqlParams, limit, offset) as SearchRow[]
+
+        return {
+          results: rows.map((row) => ({ message: rowToMessage(row), snippet: row.snippet })),
+          total: countRow.cnt
+        }
+      } else if (useAttachmentFts) {
+        // attachment_content_fts only: direct JOIN, snippet from content column (index 3).
+        // A message may have multiple matching attachments — GROUP BY m.id dedups the result
+        // set to one row per message. SQLite picks an arbitrary matching attachment row per
+        // group for the snippet(), so the excerpt may not be from the "best" match, but it
+        // will always be a valid snippet from one of the matched attachments.
+        const extraWhere = conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : ''
+
+        const countSql = `
+          SELECT COUNT(DISTINCT m.id) AS cnt
+          FROM messages m
+          JOIN attachment_content_fts acf ON m.id = acf.message_id
+          WHERE acf MATCH ?
+          ${extraWhere}
+        `
+        const dataSql = `
+          SELECT m.*, snippet(acf, 3, '<b>', '</b>', '\u2026', 12) AS snippet
+          FROM messages m
+          JOIN attachment_content_fts acf ON m.id = acf.message_id
+          WHERE acf MATCH ?
+          ${extraWhere}
+          GROUP BY m.id
+          ORDER BY m.date DESC
+          LIMIT ? OFFSET ?
+        `
+
+        const countRow = this.db
+          .prepare(countSql)
+          .get(attachmentFtsMatch, ...sqlParams) as { cnt: number }
+        const rows = this.db
+          .prepare(dataSql)
+          .all(attachmentFtsMatch, ...sqlParams, limit, offset) as SearchRow[]
 
         return {
           results: rows.map((row) => ({ message: rowToMessage(row), snippet: row.snippet })),
@@ -332,6 +409,7 @@ class SearchService {
             { value: 'cc:', label: 'cc: — filter by CC recipient' },
             { value: 'subject:', label: 'subject: — filter by subject' },
             { value: 'body:', label: 'body: — search message body' },
+            { value: 'attachment:', label: 'attachment: — search inside attachment content' },
             { value: 'before:', label: 'before: — sent before a date' },
             { value: 'after:', label: 'after: — sent after a date' },
             { value: 'is:', label: 'is: — status filter (unread, starred, forwarded, ccme)' },

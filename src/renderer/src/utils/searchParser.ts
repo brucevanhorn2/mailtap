@@ -39,6 +39,7 @@ const TAG_CANONICAL: Record<string, string> = {
   since: 'after',
   is: 'is',
   has: 'has',
+  attachment: 'attachment',
   'sent before': 'before',
   'sent after': 'after'
 }
@@ -84,7 +85,7 @@ function parseDate(value: string): number | undefined {
  * We use the `gi` flags and call `.exec()` in a loop.
  */
 const TAG_RE =
-  /(sent\s+(?:before|after)|from|sender|to|cc|subject|body|text|before|after|since|is|has):(\"[^\"]*\"|\S+)/gi
+  /(sent\s+(?:before|after)|from|sender|to|cc|subject|body|text|before|after|since|is|has|attachment):(\"[^\"]*\"|\S+)/gi
 
 function applyChipToQuery(chip: FilterChip, q: Partial<SearchQuery>): void {
   switch (chip.tag) {
@@ -127,6 +128,9 @@ function applyChipToQuery(chip: FilterChip, q: Partial<SearchQuery>): void {
       break
     case 'has':
       if (chip.value === 'attachment' || chip.value === 'attachments') q.hasAttachment = true
+      break
+    case 'attachment':
+      q.attachment = chip.value
       break
   }
 }
