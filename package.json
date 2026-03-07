@@ -7,7 +7,7 @@
     "name": "MailTap",
     "email": "hello@mailtap.app"
   },
-  "homepage": "https://github.com/mailtap-app/mailtap",
+  "homepage": "https://github.com/brucevanhorn2/mailtap",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { getEmailColor, getInitials } from '../../utils/emailColors'
 
-
 type Stage = 'loading' | 'gravatar' | 'logo' | 'initials'
 
 async function sha256Hex(text: string): Promise<string> {
