@@ -130,7 +130,7 @@ export function TitleBar({ icon }: TitleBarProps) {
     {
       key: 'learn-more',
       label: 'Learn More',
-      onClick: () => window.mailtap.invoke('app:open-url', 'https://github.com/mailtap-app/mailtap')
+      onClick: () => window.mailtap.invoke('app:open-url', 'https://github.com/brucevanhorn2/mailtap')
     }
   ]
 
