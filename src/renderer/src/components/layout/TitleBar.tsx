@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Button, Dropdown, Space, message } from 'antd'
 import { MinusOutlined, BorderOutlined, CloseOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
@@ -9,6 +9,20 @@ interface TitleBarProps {
 
 export function TitleBar({ icon }: TitleBarProps) {
   const isMac = navigator.platform.includes('Mac')
+
+  // Update the loading notification with live progress from the main process
+  useEffect(() => {
+    return window.mailtap.on('ai:classification-progress', (...args) => {
+      const progress = args[0] as { current: number; total: number; phase: string }
+      if (progress.total > 0) {
+        message.loading({
+          content: `${progress.phase}: ${progress.current} / ${progress.total}`,
+          duration: 0,
+          key: 'reclassify'
+        })
+      }
+    })
+  }, [])
 
   // Window control handlers
   const handleMinimize = () => {
@@ -116,7 +130,7 @@ export function TitleBar({ icon }: TitleBarProps) {
     {
       key: 'learn-more',
       label: 'Learn More',
-      onClick: () => window.mailtap.invoke('app:open-url', 'https://github.com/mailtap-app/mailtap')
+      onClick: () => window.mailtap.invoke('app:open-url', 'https://github.com/brucevanhorn2/mailtap')
     }
   ]
 

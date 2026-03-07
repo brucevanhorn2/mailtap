@@ -65,7 +65,7 @@ export function buildMenu(win: BrowserWindow): void {
         { type: 'separator' },
         {
           label: 'Learn More',
-          click: () => shell.openExternal('https://github.com/mailtap-app/mailtap')
+          click: () => shell.openExternal('https://github.com/brucevanhorn2/mailtap')
         }
       ]
     }

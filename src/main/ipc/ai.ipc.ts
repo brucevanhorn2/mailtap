@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
 import { aiModelManager } from '../services/AiModelManager'
 import { subscriptionService } from '../services/SubscriptionService'
 import { classificationService } from '../services/ClassificationService'
@@ -121,8 +121,14 @@ export function registerAiIpc(): void {
   ipcMain.handle('ai:classify-batch', async () => {
     try {
       // Call classificationService directly — this should work regardless of
-      // whether the background pipeline is enabled or not
-      await classificationService.processQueue()
+      // whether the background pipeline is enabled or not.
+      // Broadcast progress events so the renderer can show a live count.
+      await classificationService.processQueue(50, (progress) => {
+        const wins = BrowserWindow.getAllWindows()
+        for (const win of wins) {
+          try { win.webContents.send('ai:classification-progress', progress) } catch { /* ignore */ }
+        }
+      })
       return { success: true } as IpcResult
     } catch (err) {
       logger.error('Error processing classification batch:', err)
@@ -247,6 +253,15 @@ export function registerAiIpc(): void {
       return aiAnalyticsService.getAccountStats()
     } catch (err) {
       logger.error('Error getting account stats:', err)
+      return []
+    }
+  })
+
+  ipcMain.handle('ai:analytics-storage', async () => {
+    try {
+      return aiAnalyticsService.getStorageStats()
+    } catch (err) {
+      logger.error('Error getting storage stats:', err)
       return []
     }
   })

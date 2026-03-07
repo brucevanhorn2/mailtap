@@ -1,7 +1,7 @@
 import { storageService } from './StorageService'
 import { settingsService } from './SettingsService'
 import { logger } from '../utils/logger'
-import type { AccountStats } from '@shared/types'
+import type { AccountStats, StorageStat } from '@shared/types'
 
 export interface LabelCount {
   label: string
@@ -424,6 +424,40 @@ class AiAnalyticsService {
       }))
     } catch (err) {
       logger.error('Error getting account stats:', err)
+      return []
+    }
+  }
+
+  /**
+   * Get storage usage per account (message bytes + attachment bytes).
+   */
+  getStorageStats(): StorageStat[] {
+    try {
+      const db = storageService.db
+      const rows = db.prepare(`
+        SELECT
+          m.account_id,
+          COUNT(m.id)                          AS message_count,
+          COALESCE(SUM(m.size_bytes), 0)       AS message_bytes,
+          COALESCE(SUM(a.attach_bytes), 0)     AS attachment_bytes
+        FROM messages m
+        LEFT JOIN (
+          SELECT message_id, SUM(size_bytes) AS attach_bytes
+          FROM attachments
+          GROUP BY message_id
+        ) a ON a.message_id = m.id
+        WHERE m.is_deleted = 0
+        GROUP BY m.account_id
+      `).all() as any[]
+
+      return rows.map((row) => ({
+        accountId:       row.account_id,
+        messageCount:    row.message_count,
+        messageBytes:    row.message_bytes,
+        attachmentBytes: row.attachment_bytes
+      }))
+    } catch (err) {
+      logger.error('Error getting storage stats:', err)
       return []
     }
   }
