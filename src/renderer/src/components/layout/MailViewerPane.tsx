@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { Spin, Button, Tooltip } from 'antd'
 import { CloseOutlined, HomeOutlined, SettingOutlined } from '@ant-design/icons'
-import type { Attachment } from '@shared/types'
+import type { Attachment, Message } from '@shared/types'
 import { useMailStore } from '../../store/mailStore'
 import { useUiStore } from '../../store/uiStore'
 import { useAiStore } from '../../store/aiStore'
@@ -14,6 +14,7 @@ import { MessageSummary } from '../ai/MessageSummary'
 import { AnalyticsHome } from '../ai/AnalyticsHome'
 import { useMailViewer } from '../../hooks/useMailViewer'
 import { useMail } from '../../hooks/useMail'
+import { ComposeModal } from '../compose/ComposeModal'
 
 interface MailBodyData {
   html: string
@@ -37,6 +38,8 @@ export function MailViewerPane() {
   const [showSummary, setShowSummary] = useState(false)
   const [allowThreatInteraction, setAllowThreatInteraction] = useState(false)
   const summaryRef = useRef<HTMLDivElement>(null)
+  const [composeOpen, setComposeOpen] = useState(false)
+  const [replyMessage, setReplyMessage] = useState<Message | undefined>(undefined)
 
   useEffect(() => {
     if (!selectedId) {
@@ -91,6 +94,16 @@ export function MailViewerPane() {
     window.addEventListener('mailtap:show-dashboard', handler)
     return () => window.removeEventListener('mailtap:show-dashboard', handler)
   }, [setViewerTab])
+
+  // Listen for mailtap:compose event from TitleBar menu
+  useEffect(() => {
+    const handler = () => {
+      setReplyMessage(undefined)
+      setComposeOpen(true)
+    }
+    window.addEventListener('mailtap:compose', handler)
+    return () => window.removeEventListener('mailtap:compose', handler)
+  }, [])
 
   const isThreat = (selectedMessage?.aiThreatScore ?? 0) > threatThreshold
 
@@ -262,6 +275,10 @@ export function MailViewerPane() {
               setShowSummary(true)
               setTimeout(() => summaryRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
             } : undefined}
+            onReply={() => {
+              setReplyMessage(selectedMessage)
+              setComposeOpen(true)
+            }}
           />
 
           {/* Threat warning banner */}
@@ -375,6 +392,15 @@ export function MailViewerPane() {
           )}
         </div>
       )}
+
+      <ComposeModal
+        open={composeOpen}
+        onClose={() => {
+          setComposeOpen(false)
+          setReplyMessage(undefined)
+        }}
+        replyTo={replyMessage}
+      />
     </div>
   )
 }

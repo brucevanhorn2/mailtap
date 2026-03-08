@@ -12,6 +12,10 @@ export interface Account {
   imapHost: string
   imapPort: number
   imapTls: boolean
+  smtpHost: string
+  smtpPort: number
+  smtpTls: boolean
+  smtpUser: string
   syncIntervalMinutes: number
   enabled: boolean
   createdAt: number
@@ -30,7 +34,12 @@ export interface AddAccountPayload {
   imapHost: string
   imapPort: number
   imapTls: boolean
+  smtpHost: string
+  smtpPort: number
+  smtpTls: boolean
+  smtpUser: string
   password: string
+  smtpPassword?: string
   syncIntervalMinutes: number
 }
 
@@ -40,6 +49,11 @@ export interface UpdateAccountPayload {
   syncIntervalMinutes?: number
   enabled?: boolean
   password?: string
+  smtpHost?: string
+  smtpPort?: number
+  smtpTls?: boolean
+  smtpUser?: string
+  smtpPassword?: string
 }
 
 export interface ConnectionTestResult {
@@ -336,6 +350,26 @@ export interface StorageStat {
   attachmentBytes: number
 }
 
+// ─── Compose / Send ──────────────────────────────────────────────────────────
+
+export interface ComposePayload {
+  accountId: string
+  to: EmailAddress[]
+  cc: EmailAddress[]
+  bcc: EmailAddress[]
+  subject: string
+  text: string
+  html?: string
+  inReplyTo?: string
+  references?: string
+  attachments?: { filename: string; path: string }[]
+}
+
+export interface SendResult {
+  success: boolean
+  messageId?: string
+  error?: string
+}
 // ─── IPC generic ─────────────────────────────────────────────────────────────
 
 export interface IpcResult<T = void> {

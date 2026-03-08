@@ -40,6 +40,12 @@ export function TitleBar({ icon }: TitleBarProps) {
   // File menu
   const fileMenuItems: MenuProps['items'] = [
     {
+      key: 'compose',
+      label: 'New Message...',
+      onClick: () => window.dispatchEvent(new CustomEvent('mailtap:compose'))
+    },
+    { type: 'divider' },
+    {
       key: 'add-account',
       label: 'Add Account...',
       onClick: () => window.dispatchEvent(new CustomEvent('mailtap:add-account'))

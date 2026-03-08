@@ -13,6 +13,7 @@ interface AccountsStore {
 interface CredentialsStore {
   [accountId: string]: {
     encryptedPassword: string
+    encryptedSmtpPassword?: string
     encryptedRefreshToken?: string
   }
 }
@@ -56,6 +57,10 @@ class AccountService {
       imapHost: payload.imapHost,
       imapPort: payload.imapPort,
       imapTls: payload.imapTls,
+      smtpHost: payload.smtpHost ?? '',
+      smtpPort: payload.smtpPort ?? 587,
+      smtpTls: payload.smtpTls ?? false,
+      smtpUser: payload.smtpUser ?? payload.email,
       syncIntervalMinutes: payload.syncIntervalMinutes,
       enabled: true,
       createdAt: now
@@ -65,9 +70,13 @@ class AccountService {
     accounts.push(account)
     this.accountsStore.set('accounts', accounts)
 
-    // Encrypt and store password separately
+    // Encrypt and store password(s) separately
     const encryptedPassword = encryptString(payload.password)
-    this.credentialsStore.set(id, { encryptedPassword })
+    const creds: CredentialsStore[string] = { encryptedPassword }
+    if (payload.smtpPassword) {
+      creds.encryptedSmtpPassword = encryptString(payload.smtpPassword)
+    }
+    this.credentialsStore.set(id, creds)
 
     logger.info('AccountService: added account', id, payload.email)
     return account
@@ -87,20 +96,27 @@ class AccountService {
       ...(payload.syncIntervalMinutes !== undefined && {
         syncIntervalMinutes: payload.syncIntervalMinutes
       }),
-      ...(payload.enabled !== undefined && { enabled: payload.enabled })
+      ...(payload.enabled !== undefined && { enabled: payload.enabled }),
+      ...(payload.smtpHost !== undefined && { smtpHost: payload.smtpHost }),
+      ...(payload.smtpPort !== undefined && { smtpPort: payload.smtpPort }),
+      ...(payload.smtpTls !== undefined && { smtpTls: payload.smtpTls }),
+      ...(payload.smtpUser !== undefined && { smtpUser: payload.smtpUser })
     }
 
     accounts[idx] = updated
     this.accountsStore.set('accounts', accounts)
 
-    // Update password if provided
-    if (payload.password !== undefined) {
-      const encryptedPassword = encryptString(payload.password)
+    // Update password(s) if provided
+    if (payload.password !== undefined || payload.smtpPassword !== undefined) {
       const existing = this.credentialsStore.get(payload.id) ?? { encryptedPassword: '' }
-      this.credentialsStore.set(payload.id, {
-        ...existing,
-        encryptedPassword
-      })
+      const updatedCreds = { ...existing }
+      if (payload.password !== undefined) {
+        updatedCreds.encryptedPassword = encryptString(payload.password)
+      }
+      if (payload.smtpPassword !== undefined) {
+        updatedCreds.encryptedSmtpPassword = encryptString(payload.smtpPassword)
+      }
+      this.credentialsStore.set(payload.id, updatedCreds)
       logger.info('AccountService: updated credentials for account', payload.id)
     }
 
@@ -114,6 +130,16 @@ class AccountService {
     this.accountsStore.set('accounts', filtered)
     this.credentialsStore.delete(id)
     logger.info('AccountService: removed account', id)
+  }
+
+  getDecryptedSmtpPassword(id: string): string {
+    const creds = this.credentialsStore.get(id)
+    if (!creds) throw new Error(`No credentials stored for account: ${id}`)
+    // Fall back to IMAP password if no dedicated SMTP password is set
+    if (creds.encryptedSmtpPassword) {
+      return decryptString(creds.encryptedSmtpPassword)
+    }
+    return decryptString(creds.encryptedPassword)
   }
 
   getCredentials(id: string): AccountWithCredentials {

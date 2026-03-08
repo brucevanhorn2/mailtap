@@ -3,10 +3,15 @@ import { promises as fs } from 'fs'
 import { simpleParser } from 'mailparser'
 import { mailRepository } from '../services/MailRepository'
 import { emlStore } from '../services/EmlStore'
+import { smtpService } from '../services/SmtpService'
 import { logger } from '../utils/logger'
-import type { MailListQuery } from '@shared/types'
+import type { MailListQuery, ComposePayload } from '@shared/types'
 
 export function registerMailIpc(): void {
+  ipcMain.handle('mail:send', async (_event, payload: ComposePayload) => {
+    return smtpService.sendMessage(payload)
+  })
+
   ipcMain.handle('mail:list', async (_event, query: MailListQuery) => {
     return mailRepository.listMessages(query)
   })
