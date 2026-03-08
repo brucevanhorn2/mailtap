@@ -19,8 +19,8 @@ class SmtpService {
 
       const transporter = nodemailer.createTransport({
         host: account.smtpHost,
-        port: account.smtpPort,
-        secure: account.smtpTls,
+        port: account.smtpPort ?? 587,
+        secure: account.smtpTls ?? false,
         auth: {
           user: account.smtpUser || account.email,
           pass: smtpPassword
@@ -28,20 +28,16 @@ class SmtpService {
       })
 
       const info = await transporter.sendMail({
-        from: `"${account.name}" <${account.email}>`,
-        to: payload.to.map((a) => (a.name ? `"${a.name}" <${a.email}>` : a.email)).join(', '),
-        cc:
-          payload.cc.length > 0
-            ? payload.cc.map((a) => (a.name ? `"${a.name}" <${a.email}>` : a.email)).join(', ')
-            : undefined,
-        bcc:
-          payload.bcc.length > 0
-            ? payload.bcc.map((a) => (a.name ? `"${a.name}" <${a.email}>` : a.email)).join(', ')
-            : undefined,
+        from: { name: account.name, address: account.email },
+        to: payload.to.map((a) => ({ name: a.name, address: a.email })),
+        cc: payload.cc.length > 0 ? payload.cc.map((a) => ({ name: a.name, address: a.email })) : undefined,
+        bcc: payload.bcc.length > 0 ? payload.bcc.map((a) => ({ name: a.name, address: a.email })) : undefined,
         subject: payload.subject,
         text: payload.text,
         html: payload.html,
         inReplyTo: payload.inReplyTo,
+        // TODO: RFC 2822 §3.6.4 — references should be the full ancestor chain;
+        // currently only the direct parent is available since we don't store the full chain.
         references: payload.references,
         attachments: payload.attachments
       })

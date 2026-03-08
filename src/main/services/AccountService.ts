@@ -96,22 +96,25 @@ class AccountService {
       ...(payload.syncIntervalMinutes !== undefined && {
         syncIntervalMinutes: payload.syncIntervalMinutes
       }),
-      ...(payload.enabled !== undefined && { enabled: payload.enabled })
+      ...(payload.enabled !== undefined && { enabled: payload.enabled }),
+      ...(payload.smtpHost !== undefined && { smtpHost: payload.smtpHost }),
+      ...(payload.smtpPort !== undefined && { smtpPort: payload.smtpPort }),
+      ...(payload.smtpTls !== undefined && { smtpTls: payload.smtpTls }),
+      ...(payload.smtpUser !== undefined && { smtpUser: payload.smtpUser })
     }
 
     accounts[idx] = updated
     this.accountsStore.set('accounts', accounts)
 
     // Update password(s) if provided
-    if (payload.password !== undefined || (payload as UpdateAccountPayload & { smtpPassword?: string }).smtpPassword !== undefined) {
+    if (payload.password !== undefined || payload.smtpPassword !== undefined) {
       const existing = this.credentialsStore.get(payload.id) ?? { encryptedPassword: '' }
       const updatedCreds = { ...existing }
       if (payload.password !== undefined) {
         updatedCreds.encryptedPassword = encryptString(payload.password)
       }
-      const smtpPass = (payload as UpdateAccountPayload & { smtpPassword?: string }).smtpPassword
-      if (smtpPass !== undefined) {
-        updatedCreds.encryptedSmtpPassword = encryptString(smtpPass)
+      if (payload.smtpPassword !== undefined) {
+        updatedCreds.encryptedSmtpPassword = encryptString(payload.smtpPassword)
       }
       this.credentialsStore.set(payload.id, updatedCreds)
       logger.info('AccountService: updated credentials for account', payload.id)

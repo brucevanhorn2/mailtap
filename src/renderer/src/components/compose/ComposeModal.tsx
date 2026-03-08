@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import { Modal, Form, Input, Select, Button, Space, Alert, message } from 'antd'
-import { PlusOutlined } from '@ant-design/icons'
 import type { Message, ComposePayload, EmailAddress } from '@shared/types'
 import { useAccountStore } from '../../store/accountStore'
 import { useMailStore } from '../../store/mailStore'
@@ -83,9 +82,10 @@ export function ComposeModal({ open, onClose, replyTo }: ComposeModalProps) {
       })
     }
     setShowCcBcc(false)
-  }, [open, replyTo]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, replyTo, defaultAccountId])
 
   async function handleSend() {
+    setLoading(true)
     try {
       const values = await form.validateFields()
 
@@ -100,7 +100,6 @@ export function ComposeModal({ open, onClose, replyTo }: ComposeModalProps) {
         references: replyTo?.messageId ?? undefined
       }
 
-      setLoading(true)
       const result = await window.mailtap.invoke('mail:send', payload)
       if (result.success) {
         message.success('Sent!')
@@ -109,7 +108,7 @@ export function ComposeModal({ open, onClose, replyTo }: ComposeModalProps) {
         message.error(result.error ?? 'Failed to send message')
       }
     } catch {
-      // validation error — stay open
+      // covers both validation errors and send errors — modal stays open
     } finally {
       setLoading(false)
     }
@@ -180,7 +179,6 @@ export function ComposeModal({ open, onClose, replyTo }: ComposeModalProps) {
             mode="tags"
             tokenSeparators={[',', ';']}
             placeholder="recipient@example.com"
-            suffixIcon={<PlusOutlined style={{ color: '#a0a0a8', fontSize: 11 }} />}
             style={{ width: '100%' }}
           />
         </Form.Item>
